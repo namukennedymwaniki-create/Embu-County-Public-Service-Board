@@ -23,6 +23,22 @@ import google.generativeai as genai
 import time
 
 # =========================================================
+# PASTE THE IMPORT CODE HERE - RIGHT AFTER YOUR EXISTING IMPORTS
+# =========================================================
+# Import Leave Management Module
+try:
+    from leave_management_module import (
+        leave_management_router,
+        migrate_leave_tables
+    )
+    LEAVE_MODULE_AVAILABLE = True
+except ImportError:
+    LEAVE_MODULE_AVAILABLE = False
+    def leave_management_router():
+        st.info("🏖️ Leave Management Module - Please install the module")
+    def migrate_leave_tables():
+        pass
+# =========================================================
 # EMAIL FUNCTIONS
 # =========================================================
 
@@ -123,6 +139,7 @@ ROLE_PERMISSIONS = {
             "⭐ Shortlist Management",
             "📊 Scoresheet",
             "👔 HR Functions",
+            "🏖️ Leave Management",
             "📥 Import Excel",
             "📋 Records",
             "📈 Reports",
@@ -154,6 +171,7 @@ ROLE_PERMISSIONS = {
             "⭐ Shortlist Management",
             "📊 Scoresheet",
             "👔 HR Functions",
+            "🏖️ Leave Management",
             "📥 Import Excel",
             "📋 Records",
             "📈 Reports",
@@ -1348,6 +1366,19 @@ def init_db():
             c.execute("CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON document_chunks(document_id)")
         except Exception as e:
             print(f"Index creation warning: {e}")
+
+        # =========================================================
+        # ADD THIS AT THE END OF init_db()
+        # =========================================================
+        
+        # Migrate leave management tables
+        try:
+            from leave_management_module import migrate_leave_tables
+            migrate_leave_tables()
+        except ImportError:
+            print("Leave management module not found - skipping migration")
+        except Exception as e:
+            print(f"Error migrating leave tables: {e}")
     
     conn.commit()
     conn.close()
@@ -6882,6 +6913,7 @@ def sidebar():
                 "⭐ Shortlist Management": "Manage shortlisted candidates",
                 "📊 Scoresheet": "Panelist scoring",
                 "👔 HR Functions": "HR operations",
+                "🏖️ Leave Management": "Leave management module",
                 "🤖 AI Knowledge Base": "AI Knowledge Base",
                 "📥 Import Excel": "Bulk uploads",
                 "📋 Records": "All records",
@@ -17267,6 +17299,8 @@ def main():
         system_settings()
     elif menu == "🤖 AI Knowledge Base":
         ai_knowledge_base()
+    elif menu == "🏖️ Leave Management" or menu.startswith("    ├─") or menu.startswith("    └─"):
+        leave_management_router()
     elif menu == "👤 Users":
         users()
     else:
