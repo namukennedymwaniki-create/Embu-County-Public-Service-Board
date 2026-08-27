@@ -727,7 +727,60 @@ def login_user(identifier, password):
         st.error(f"Login error: {e}")
         conn.close()
         return None
-
+def get_user_menu():
+    """Return menu items based on user role - includes leave management sub-menus"""
+    if "user" not in st.session_state or st.session_state.user is None:
+        return []
+    
+    role = st.session_state.user.get("role", "User")
+    
+    # Build menu based on role
+    menu = []
+    
+    # Base menus for all users
+    menu.extend(["📊 Dashboard", "🤖 AI Knowledge Base"])
+    
+    # User role menus
+    if role in ["User", "HR", "Admin", "Super Admin"]:
+        menu.extend(["👥 Applicant Profile", "📝 Applicant Registration", "✏️ Edit Application",
+                     "⭐ Shortlist Management", "📊 Scoresheet"])
+    
+    # HR and above get HR Functions
+    if role in ["HR", "Admin", "Super Admin"]:
+        menu.append("👔 HR Functions")
+    
+    # Admin and Super Admin get additional menus
+    if role in ["Admin", "Super Admin"]:
+        menu.extend(["📥 Import Excel", "📋 Records", "📈 Reports", "⭐ Review",
+                     "📤 Export Center", "✅ Data Quality", "⚙️ Settings", "👤 Users"])
+    
+    # Super Admin gets audit and backup
+    if role == "Super Admin":
+        menu.extend(["🔒 Audit Trail", "💾 Backup & Restore"])
+    
+    # =========================================================
+    # LEAVE MANAGEMENT - Add main item AND sub-items
+    # =========================================================
+    if role in ["User", "HR", "Admin", "Super Admin"]:
+        # Main menu item
+        menu.append("🏖️ Leave Management")
+        
+        # Sub-menu items (indented with spaces)
+        menu.append("    ├─ Dashboard")
+        menu.append("    ├─ Apply for Leave")
+        menu.append("    ├─ My Leave")
+        
+        if role in ["HR", "Admin", "Super Admin"]:
+            menu.append("    ├─ Leave Approvals")
+        
+        menu.append("    ├─ Leave Calendar")
+        menu.append("    ├─ Leave Roster")
+        menu.append("    ├─ Leave Balances")
+        
+        if role in ["HR", "Admin", "Super Admin"]:
+            menu.append("    └─ Reports")
+    
+    return menu
 # =========================================================
 # DATABASE INIT
 # =========================================================
@@ -6906,26 +6959,38 @@ def sidebar():
         
         # Menu descriptions for each item
         menu_descriptions = {
-                "📊 Dashboard": "Overview & KPIs",
-                "👥 Applicant Profile": "View applicant profiles",
-                "📝 Applicant Registration": "Register applicants",
-                "✏️ Edit Application": "Modify applications",
-                "⭐ Shortlist Management": "Manage shortlisted candidates",
-                "📊 Scoresheet": "Panelist scoring",
-                "👔 HR Functions": "HR operations",
-                "🏖️ Leave Management": "Leave management module",
-                "🤖 AI Knowledge Base": "AI Knowledge Base",
-                "📥 Import Excel": "Bulk uploads",
-                "📋 Records": "All records",
-                "📈 Reports": "Analytics & reports",
-                "⭐ Review": "Review and evaluate applicants",
-                "📤 Export Center": "Export data",
-                "✅ Data Quality": "Validate records",
-                "🔒 Audit Trail": "Track system activity",
-                "💾 Backup & Restore": "Database management",
-                "🧪 Test Data": "Generate sample data",
-                "⚙️ Settings": "System configuration",
-                "👤 Users": "User management"
+            "📊 Dashboard": "Overview & KPIs",
+            "👥 Applicant Profile": "View applicant profiles",
+            "📝 Applicant Registration": "Register applicants",
+            "✏️ Edit Application": "Modify applications",
+            "⭐ Shortlist Management": "Manage shortlisted candidates",
+            "📊 Scoresheet": "Panelist scoring",
+            "👔 HR Functions": "HR operations",
+            "🤖 AI Knowledge Base": "AI Knowledge Base",
+            "📥 Import Excel": "Bulk uploads",
+            "📋 Records": "All records",
+            "📈 Reports": "Analytics & reports",
+            "⭐ Review": "Review and evaluate applicants",
+            "📤 Export Center": "Export data",
+            "✅ Data Quality": "Validate records",
+            "🔒 Audit Trail": "Track system activity",
+            "💾 Backup & Restore": "Database management",
+            "🧪 Test Data": "Generate sample data",
+            "⚙️ Settings": "System configuration",
+            "👤 Users": "User management",
+            
+            # =========================================================
+            # LEAVE MANAGEMENT MENU DESCRIPTIONS
+            # =========================================================
+            "🏖️ Leave Management": "Leave management module",
+            "    ├─ Dashboard": "Leave overview & statistics",
+            "    ├─ Apply for Leave": "Submit leave application",
+            "    ├─ My Leave": "View your leave history",
+            "    ├─ Leave Approvals": "Review pending applications",
+            "    ├─ Leave Calendar": "View leave schedules",
+            "    ├─ Leave Roster": "Staff on leave",
+            "    ├─ Leave Balances": "View leave balances",
+            "    └─ Reports": "Generate leave reports"
         }
 
         menu = st.radio(
