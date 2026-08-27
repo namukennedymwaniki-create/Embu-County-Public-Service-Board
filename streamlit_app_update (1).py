@@ -2524,7 +2524,7 @@ def hr_dashboard():
             elif 'search_performed' not in st.session_state and 'editing_staff' not in st.session_state:
                 st.info("👆 Use the search filters above to find staff members. Click the Edit button to modify staff details or Delete to remove a record.")
     
-    # =========================================================
+# =========================================================
     # TAB 3: IMPORT STAFF
     # =========================================================
     elif selected_module == "📥 Import Staff":
@@ -2533,6 +2533,7 @@ def hr_dashboard():
         
         template_df = pd.DataFrame({
             'Personal No': ['12345678', '87654321'],
+            'Staff No': ['STF001', 'STF002'],  # Added Staff No column
             'Name': ['John Doe', 'Jane Smith'],
             'Gender': ['Male', 'Female'],
             'Age': [35, 28],
@@ -2580,6 +2581,9 @@ def hr_dashboard():
                     'personal number': 'personal_no',
                     'id number': 'personal_no',
                     'national id': 'personal_no',
+                    'staff no': 'staff_no',  # Added staff_no mapping
+                    'staff number': 'staff_no',
+                    'employee no': 'staff_no',
                     'name': 'name',
                     'full name': 'name',
                     'employee name': 'name',
@@ -2604,13 +2608,23 @@ def hr_dashboard():
                     if col in column_mapping:
                         import_df = import_df.rename(columns={col: column_mapping[col]})
                 
+                # Check for required columns
                 if 'personal_no' not in import_df.columns or 'name' not in import_df.columns:
                     st.error("❌ Required columns 'Personal No' and 'Name' not found in the file!")
                     st.info("Please ensure your file has columns: Personal No (National ID) and Name")
                 else:
                     preview_df = import_df[['personal_no', 'name']].copy()
+                    if 'staff_no' in import_df.columns:
+                        preview_df['staff_no'] = import_df['staff_no']
                     st.write("**Preview of required fields:**")
                     st.dataframe(preview_df.head(10), use_container_width=True)
+                    
+                    # Show warning if staff_no is missing
+                    if 'staff_no' not in import_df.columns:
+                        st.warning("⚠️ 'Staff No' column not found. Staff numbers will need to be added manually or generated.")
+                        generate_staff_no = st.checkbox("Auto-generate Staff Numbers (format: STF0001, STF0002, etc.)")
+                    else:
+                        generate_staff_no = False
                     
                     col1, col2, col3 = st.columns([1, 2, 1])
                     with col2:
@@ -2622,6 +2636,15 @@ def hr_dashboard():
                             progress_bar = st.progress(0)
                             status_text = st.empty()
                             
+                            # Get max staff_no if auto-generating
+                            if generate_staff_no:
+                                if is_cloud:
+                                    cursor.execute("SELECT MAX(CAST(SUBSTRING(staff_no, 4) AS INTEGER)) FROM employees WHERE staff_no LIKE 'STF%'")
+                                else:
+                                    cursor.execute("SELECT MAX(CAST(SUBSTRING(staff_no, 4) AS INTEGER)) FROM employees WHERE staff_no LIKE 'STF%'")
+                                result = cursor.fetchone()
+                                next_staff_num = (result[0] or 0) + 1
+                            
                             for idx, row in import_df.iterrows():
                                 try:
                                     personal_no = str(row['personal_no']).strip() if pd.notna(row['personal_no']) else ''
@@ -2631,6 +2654,32 @@ def hr_dashboard():
                                         skipped += 1
                                         errors.append(f"Row {idx+2}: Missing Personal No or Name")
                                         continue
+                                    
+                                    # Handle staff_no
+                                    if 'staff_no' in import_df.columns and pd.notna(row['staff_no']):
+                                        staff_no = str(row['staff_no']).strip()
+                                    elif generate_staff_no:
+                                        staff_no = f"STF{next_staff_num:04d}"
+                                        next_staff_num += 1
+                                    else:
+                                        # Try to fetch existing staff_no or generate one
+                                        if is_cloud:
+                                            cursor.execute("SELECT staff_no FROM employees WHERE personal_no = %s", (personal_no,))
+                                        else:
+                                            cursor.execute("SELECT staff_no FROM employees WHERE personal_no = ?", (personal_no,))
+                                        result = cursor.fetchone()
+                                        if result:
+                                            staff_no = result[0]
+                                        else:
+                                            # Generate a new staff_no
+                                            if is_cloud:
+                                                cursor.execute("SELECT MAX(CAST(SUBSTRING(staff_no, 4) AS INTEGER)) FROM employees WHERE staff_no LIKE 'STF%'")
+                                            else:
+                                                cursor.execute("SELECT MAX(CAST(SUBSTRING(staff_no, 4) AS INTEGER)) FROM employees WHERE staff_no LIKE 'STF%'")
+                                            result = cursor.fetchone()
+                                            next_num = (result[0] or 0) + 1
+                                            staff_no = f"STF{next_num:04d}"
+                                            errors.append(f"Row {idx+2}: Generated staff_no '{staff_no}' (missing in import)")
                                     
                                     gender = str(row['gender']).strip() if 'gender' in import_df.columns and pd.notna(row['gender']) else ''
                                     age = int(row['age']) if 'age' in import_df.columns and pd.notna(row['age']) else 0
@@ -2647,22 +2696,24 @@ def hr_dashboard():
                                     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                     username = st.session_state.user['username']
                                     
+                                    # Check if employee exists by personal_no
                                     if is_cloud:
                                         cursor.execute("SELECT personal_no FROM employees WHERE personal_no = %s", (personal_no,))
                                     else:
                                         cursor.execute("SELECT personal_no FROM employees WHERE personal_no = ?", (personal_no,))
                                     
                                     if cursor.fetchone():
+                                        # Update existing employee with staff_no included
                                         if is_cloud:
                                             cursor.execute("""
                                                 UPDATE employees SET
-                                                    name = %s, gender = %s, age = %s, department = %s,
+                                                    staff_no = %s, name = %s, gender = %s, age = %s, department = %s,
                                                     first_appointment_date = %s, first_designation = %s,
                                                     first_job_group = %s, current_designation_date = %s,
                                                     current_designation = %s, current_job_group = %s,
                                                     academic_qualifications = %s, professional_qualifications = %s
                                                 WHERE personal_no = %s
-                                            """, (name, gender, age, department,
+                                            """, (staff_no, name, gender, age, department,
                                                   first_appointment_date if first_appointment_date else None,
                                                   first_designation, first_job_group,
                                                   current_designation_date if current_designation_date else None,
@@ -2671,13 +2722,13 @@ def hr_dashboard():
                                         else:
                                             cursor.execute("""
                                                 UPDATE employees SET
-                                                    name = ?, gender = ?, age = ?, department = ?,
+                                                    staff_no = ?, name = ?, gender = ?, age = ?, department = ?,
                                                     first_appointment_date = ?, first_designation = ?,
                                                     first_job_group = ?, current_designation_date = ?,
                                                     current_designation = ?, current_job_group = ?,
                                                     academic_qualifications = ?, professional_qualifications = ?
                                                 WHERE personal_no = ?
-                                            """, (name, gender, age, department,
+                                            """, (staff_no, name, gender, age, department,
                                                   first_appointment_date if first_appointment_date else None,
                                                   first_designation, first_job_group,
                                                   current_designation_date if current_designation_date else None,
@@ -2685,16 +2736,17 @@ def hr_dashboard():
                                                   academic_qualifications, professional_qualifications, personal_no))
                                         st.info(f"Updated existing record: {personal_no} - {name}")
                                     else:
+                                        # Insert new employee with staff_no
                                         if is_cloud:
                                             cursor.execute("""
                                                 INSERT INTO employees (
-                                                    personal_no, name, gender, age, department,
+                                                    staff_no, personal_no, name, gender, age, department,
                                                     first_appointment_date, first_designation, first_job_group,
                                                     current_designation_date, current_designation, current_job_group,
                                                     academic_qualifications, professional_qualifications,
                                                     created_at, created_by
-                                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                            """, (personal_no, name, gender, age, department,
+                                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                            """, (staff_no, personal_no, name, gender, age, department,
                                                   first_appointment_date if first_appointment_date else None,
                                                   first_designation, first_job_group,
                                                   current_designation_date if current_designation_date else None,
@@ -2704,20 +2756,20 @@ def hr_dashboard():
                                         else:
                                             cursor.execute("""
                                                 INSERT INTO employees (
-                                                    personal_no, name, gender, age, department,
+                                                    staff_no, personal_no, name, gender, age, department,
                                                     first_appointment_date, first_designation, first_job_group,
                                                     current_designation_date, current_designation, current_job_group,
                                                     academic_qualifications, professional_qualifications,
                                                     created_at, created_by
-                                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                            """, (personal_no, name, gender, age, department,
+                                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                            """, (staff_no, personal_no, name, gender, age, department,
                                                   first_appointment_date if first_appointment_date else None,
                                                   first_designation, first_job_group,
                                                   current_designation_date if current_designation_date else None,
                                                   current_designation, current_job_group,
                                                   academic_qualifications, professional_qualifications,
                                                   now, username))
-                                        st.success(f"✅ New employee {name} added!")
+                                        st.success(f"✅ New employee {name} added! (Staff No: {staff_no})")
                                     
                                     inserted += 1
                                     progress_bar.progress((idx + 1) / len(import_df))
@@ -2726,6 +2778,9 @@ def hr_dashboard():
                                 except Exception as e:
                                     skipped += 1
                                     errors.append(f"Row {idx+2}: {str(e)[:100]}")
+                                    # Rollback the transaction for this row in cloud version
+                                    if is_cloud:
+                                        conn.rollback()
                             
                             conn.commit()
                             
