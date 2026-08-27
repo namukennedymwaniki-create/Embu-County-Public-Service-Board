@@ -840,226 +840,6 @@ class LeaveWorkflowService:
 # LEAVE UI FUNCTIONS
 # =============================================================
 
-def leave_dashboard():
-    """Leave Management Dashboard"""
-    st.markdown("""
-    <div class="main-header">
-        <h1 style="color: white; margin: 0;">🏖️ Leave Management Dashboard</h1>
-        <p style="color: rgba(255,255,255,0.8); margin-top: 0.5rem;">View leave statistics, pending applications, and staff on leave</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    conn = get_conn()
-    if conn is None:
-        st.error("Database connection failed")
-        return
-    
-    is_cloud = st.secrets.get("DATABASE_URL") is not None
-    cursor = conn.cursor()
-    
-    try:
-        # Get total staff count
-        if is_cloud:
-            cursor.execute("SELECT COUNT(*) FROM staff")
-        else:
-            cursor.execute("SELECT COUNT(*) FROM staff")
-        total_staff = cursor.fetchone()[0] or 0
-        
-        # Get staff on leave today
-        today = datetime.now().strftime("%Y-%m-%d")
-        if is_cloud:
-            cursor.execute("""
-                SELECT COUNT(DISTINCT staff_id) FROM leave_applications 
-                WHERE status = 'APPROVED' AND start_date <= %s AND end_date >= %s
-            """, (today, today))
-        else:
-            cursor.execute("""
-                SELECT COUNT(DISTINCT staff_id) FROM leave_applications 
-                WHERE status = 'APPROVED' AND start_date <= ? AND end_date >= ?
-            """, (today, today))
-        on_leave_today = cursor.fetchone()[0] or 0
-        
-        # Get pending applications
-        if is_cloud:
-            cursor.execute("SELECT COUNT(*) FROM leave_applications WHERE status = 'PENDING'")
-        else:
-            cursor.execute("SELECT COUNT(*) FROM leave_applications WHERE status = 'PENDING'")
-        pending_applications = cursor.fetchone()[0] or 0
-        
-        # Get returning this week
-        week_end = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
-        if is_cloud:
-            cursor.execute("""
-                SELECT COUNT(DISTINCT staff_id) FROM leave_applications 
-                WHERE status = 'APPROVED' AND resumption_date BETWEEN %s AND %s
-            """, (today, week_end))
-        else:
-            cursor.execute("""
-                SELECT COUNT(DISTINCT staff_id) FROM leave_applications 
-                WHERE status = 'APPROVED' AND resumption_date BETWEEN ? AND ?
-            """, (today, week_end))
-        returning_this_week = cursor.fetchone()[0] or 0
-        
-        # Display KPI cards
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Total Staff", f"{total_staff:,}")
-        with col2:
-            st.metric("On Leave Today", on_leave_today)
-        with col3:
-            st.metric("Pending Applications", pending_applications)
-        with col4:
-            st.metric("Returning This Week", returning_this_week)
-        
-        st.markdown("---")
-        
-        # Leave Utilization
-        st.subheader("📊 Leave Utilization")
-        
-        if is_cloud:
-            cursor.execute("""
-                SELECT lt.name, lt.color,
-                       COALESCE(SUM(lb.taken_days), 0) as taken,
-                       COALESCE(SUM(lb.entitled_days), 0) as entitled
-                FROM leave_types lt
-                LEFT JOIN leave_balances lb ON lt.id = lb.leave_type_id
-                WHERE lt.is_active = TRUE
-                GROUP BY lt.id, lt.name, lt.color
-                ORDER BY lt.sort_order
-            """)
-        else:
-            cursor.execute("""
-                SELECT lt.name, lt.color,
-                       COALESCE(SUM(lb.taken_days), 0) as taken,
-                       COALESCE(SUM(lb.entitled_days), 0) as entitled
-                FROM leave_types lt
-                LEFT JOIN leave_balances lb ON lt.id = lb.leave_type_id
-                WHERE lt.is_active = 1
-                GROUP BY lt.id, lt.name, lt.color
-                ORDER BY lt.sort_order
-            """)
-        
-        utilization_data = cursor.fetchall()
-        
-        if utilization_data:
-            for name, color, taken, entitled in utilization_data:
-                percentage = (taken / entitled * 100) if entitled > 0 else 0
-                bar_color = '#10b981' if percentage < 50 else '#f59e0b' if percentage < 75 else '#ef4444'
-                
-                st.markdown(f"""
-                <div style="margin-bottom: 12px;">
-                    <div style="display: flex; justify-content: space-between; color: #cbd5e1;">
-                        <span>{name}</span>
-                        <span>{taken:.0f} / {entitled:.0f} days ({percentage:.0f}%)</span>
-                    </div>
-                    <div style="background: #1e293b; border-radius: 8px; height: 20px; overflow: hidden;">
-                        <div style="background: {bar_color}; width: {min(percentage, 100)}%; height: 100%; border-radius: 8px;"></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # Pending Applications
-        st.subheader("📋 Pending Leave Applications")
-        
-        if is_cloud:
-            cursor.execute("""
-                SELECT la.id, s.name, s.department, lt.name as leave_type, 
-                       la.start_date, la.end_date, la.status
-                FROM leave_applications la
-                JOIN staff s ON la.staff_id = s.id
-                JOIN leave_types lt ON la.leave_type_id = lt.id
-                WHERE la.status = 'PENDING'
-                ORDER BY la.submitted_at ASC
-                LIMIT 10
-            """)
-        else:
-            cursor.execute("""
-                SELECT la.id, s.name, s.department, lt.name as leave_type, 
-                       la.start_date, la.end_date, la.status
-                FROM leave_applications la
-                JOIN staff s ON la.staff_id = s.id
-                JOIN leave_types lt ON la.leave_type_id = lt.id
-                WHERE la.status = 'PENDING'
-                ORDER BY la.submitted_at ASC
-                LIMIT 10
-            """)
-        
-        pending_data = cursor.fetchall()
-        
-        if pending_data:
-            for app_id, name, department, leave_type, start_date, end_date, status in pending_data:
-                col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 1.5, 1])
-                with col1:
-                    st.write(f"**{name}**")
-                with col2:
-                    st.write(department or "N/A")
-                with col3:
-                    st.write(leave_type)
-                with col4:
-                    st.write(f"{start_date} - {end_date}")
-                with col5:
-                    if st.button(f"📋 Review", key=f"review_{app_id}"):
-                        st.session_state.leave_application_id = app_id
-                        st.session_state.leave_page = "Leave Approvals"
-                        st.rerun()
-                st.divider()
-        else:
-            st.info("✅ No pending leave applications")
-        
-        st.markdown("---")
-        
-        # Staff Currently on Leave
-        st.subheader("👥 Staff Currently on Leave")
-        
-        if is_cloud:
-            cursor.execute("""
-                SELECT s.name, s.department, lt.name as leave_type, la.resumption_date
-                FROM leave_applications la
-                JOIN staff s ON la.staff_id = s.id
-                JOIN leave_types lt ON la.leave_type_id = lt.id
-                WHERE la.status = 'APPROVED' 
-                AND la.start_date <= %s AND la.end_date >= %s
-                ORDER BY la.resumption_date ASC
-                LIMIT 10
-            """, (today, today))
-        else:
-            cursor.execute("""
-                SELECT s.name, s.department, lt.name as leave_type, la.resumption_date
-                FROM leave_applications la
-                JOIN staff s ON la.staff_id = s.id
-                JOIN leave_types lt ON la.leave_type_id = lt.id
-                WHERE la.status = 'APPROVED' 
-                AND la.start_date <= ? AND la.end_date >= ?
-                ORDER BY la.resumption_date ASC
-                LIMIT 10
-            """, (today, today))
-        
-        on_leave_data = cursor.fetchall()
-        
-        if on_leave_data:
-            for name, department, leave_type, resumption_date in on_leave_data:
-                col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 2])
-                with col1:
-                    st.write(f"**{name}**")
-                with col2:
-                    st.write(department or "N/A")
-                with col3:
-                    st.write(leave_type)
-                with col4:
-                    st.write(f"Returns: {resumption_date}")
-                st.divider()
-        else:
-            st.info("✅ No staff currently on leave")
-        
-    except Exception as e:
-        st.error(f"Error loading dashboard: {e}")
-    finally:
-        conn.close()
-
-
 def leave_application():
     """Apply for Leave - Employee Interface"""
     st.markdown("""
@@ -1086,6 +866,7 @@ def leave_application():
         # SEARCH AND FILTER PANEL
         # =============================================
         st.markdown("### 🔍 Search Employees")
+        st.caption("Enter search criteria below to find employees")
         
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
@@ -1121,148 +902,180 @@ def leave_application():
         with col3:
             st.write("")  # Spacer
             st.write("")  # Spacer
-            if st.button("🔄 Refresh", use_container_width=True, key="refresh_leave"):
-                st.rerun()
+            search_clicked = st.button("🔍 Search", use_container_width=True, type="primary", key="search_leave_btn")
         
         st.markdown("---")
         
         # =============================================
-        # BUILD QUERY WITH FILTERS - USING employees TABLE
+        # ONLY SEARCH IF BUTTON CLICKED OR SEARCH TERM EXISTS
         # =============================================
-        query_params = []
-        query_conditions = []
+        employees = []
+        show_results = False
         
-        base_query = """
-            SELECT staff_no, personal_no, name, department, gender, 
-                   current_designation, current_job_group
-            FROM employees 
-            WHERE staff_no IS NOT NULL AND staff_no != ''
-        """
-        
-        # Search filter
-        if search_term and search_term.strip():
-            search_pattern = f"%{search_term.strip()}%"
-            if is_cloud:
-                query_conditions.append("(staff_no ILIKE %s OR personal_no ILIKE %s OR name ILIKE %s)")
-            else:
-                query_conditions.append("(staff_no LIKE ? OR personal_no LIKE ? OR name LIKE ?)")
-            query_params.extend([search_pattern, search_pattern, search_pattern])
-        
-        # Department filter
-        if selected_dept and selected_dept != "All Departments":
-            if is_cloud:
-                query_conditions.append("department = %s")
-            else:
-                query_conditions.append("department = ?")
-            query_params.append(selected_dept)
-        
-        # Build final query
-        final_query = base_query
-        if query_conditions:
-            final_query += " AND " + " AND ".join(query_conditions)
-        
-        final_query += " ORDER BY name"
-        
-        # Execute query
-        if is_cloud:
-            cursor.execute(final_query, tuple(query_params))
-        else:
-            cursor.execute(final_query, query_params)
-        
-        employees = cursor.fetchall()
-        
-        st.info(f"📊 Found {len(employees)} employee(s)")
-        
-        if not employees:
-            st.warning("⚠️ No employees found matching your search criteria.")
+        # Check if search should be performed
+        if search_clicked or (search_term and search_term.strip()):
+            show_results = True
             
-            # Check if there are employees without staff_no
-            try:
+            # Build query with filters
+            query_params = []
+            query_conditions = []
+            
+            base_query = """
+                SELECT staff_no, personal_no, name, department, gender, 
+                       current_designation, current_job_group
+                FROM employees 
+                WHERE staff_no IS NOT NULL AND staff_no != ''
+            """
+            
+            # Search filter - required for search
+            if search_term and search_term.strip():
+                search_pattern = f"%{search_term.strip()}%"
                 if is_cloud:
-                    cursor.execute("SELECT COUNT(*) FROM employees WHERE staff_no IS NULL OR staff_no = ''")
+                    query_conditions.append("(staff_no ILIKE %s OR personal_no ILIKE %s OR name ILIKE %s)")
                 else:
-                    cursor.execute("SELECT COUNT(*) FROM employees WHERE staff_no IS NULL OR staff_no = ''")
+                    query_conditions.append("(staff_no LIKE ? OR personal_no LIKE ? OR name LIKE ?)")
+                query_params.extend([search_pattern, search_pattern, search_pattern])
+            else:
+                # If no search term, show a message
+                st.info("💡 Please enter a search term to find employees")
+                conn.close()
+                return
+            
+            # Department filter
+            if selected_dept and selected_dept != "All Departments":
+                if is_cloud:
+                    query_conditions.append("department = %s")
+                else:
+                    query_conditions.append("department = ?")
+                query_params.append(selected_dept)
+            
+            # Build final query
+            final_query = base_query
+            if query_conditions:
+                final_query += " AND " + " AND ".join(query_conditions)
+            
+            final_query += " ORDER BY name LIMIT 50"  # Limit results for performance
+            
+            # Execute query
+            if is_cloud:
+                cursor.execute(final_query, tuple(query_params))
+            else:
+                cursor.execute(final_query, query_params)
+            
+            employees = cursor.fetchall()
+        
+        # =============================================
+        # DISPLAY RESULTS
+        # =============================================
+        if show_results:
+            if not employees:
+                st.warning("⚠️ No employees found matching your search criteria.")
                 
-                null_count = cursor.fetchone()[0]
-                if null_count > 0:
-                    st.warning(f"⚠️ Found {null_count} employees without staff numbers. Please fix them in the Import Staff tab.")
-            except:
-                pass
+                # Check if there are employees without staff_no
+                try:
+                    if is_cloud:
+                        cursor.execute("SELECT COUNT(*) FROM employees WHERE staff_no IS NULL OR staff_no = ''")
+                    else:
+                        cursor.execute("SELECT COUNT(*) FROM employees WHERE staff_no IS NULL OR staff_no = ''")
+                    
+                    null_count = cursor.fetchone()[0]
+                    if null_count > 0:
+                        st.warning(f"⚠️ Found {null_count} employees without staff numbers. Please fix them in the Import Staff tab.")
+                except:
+                    pass
+                
+                conn.close()
+                return
+            
+            st.success(f"📊 Found {len(employees)} employee(s)")
+            
+            # =============================================
+            # DISPLAY EMPLOYEE CARDS
+            # =============================================
+            st.markdown("### 👤 Select Employee")
+            
+            # Create a nice grid of employee cards
+            cols_per_row = 3
+            for i in range(0, len(employees), cols_per_row):
+                cols = st.columns(cols_per_row)
+                for j in range(cols_per_row):
+                    if i + j < len(employees):
+                        emp = employees[i + j]
+                        staff_no, personal_no, name, dept, gender, designation, job_group = emp
+                        
+                        with cols[j]:
+                            # Create a styled card
+                            card_html = f"""
+                            <div style="
+                                border: 1px solid #e0e0e0;
+                                border-radius: 10px;
+                                padding: 15px;
+                                margin: 5px 0;
+                                background: {'#f8f9fa' if gender == 'Female' else '#ffffff'};
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                                height: 180px;
+                                display: flex;
+                                flex-direction: column;
+                                justify-content: space-between;
+                            ">
+                                <div>
+                                    <strong style="font-size: 16px; color: #1a1a2e;">{name}</strong><br>
+                                    <span style="color: #666; font-size: 14px;">Staff No: <strong>{staff_no}</strong></span><br>
+                                    <span style="color: #666; font-size: 13px;">Department: {dept or 'N/A'}</span><br>
+                                    <span style="color: #666; font-size: 13px;">Designation: {designation or 'N/A'}</span>
+                                </div>
+                                <div style="margin-top: 10px;">
+                                    <span style="
+                                        background: {'#28a745' if gender == 'Male' else '#6f42c1'};
+                                        color: white;
+                                        padding: 2px 10px;
+                                        border-radius: 12px;
+                                        font-size: 12px;
+                                    ">{gender or 'N/A'}</span>
+                                    <span style="
+                                        background: '#17a2b8';
+                                        color: white;
+                                        padding: 2px 10px;
+                                        border-radius: 12px;
+                                        font-size: 12px;
+                                        margin-left: 5px;
+                                    ">{job_group or 'N/A'}</span>
+                                </div>
+                            </div>
+                            """
+                            st.markdown(card_html, unsafe_allow_html=True)
+                            
+                            # Select button for this employee
+                            if st.button(f"📝 Select {name.split()[0]}", key=f"select_leave_{staff_no}", use_container_width=True):
+                                st.session_state.selected_staff_no = staff_no
+                                st.session_state.selected_employee = {
+                                    'staff_no': staff_no,
+                                    'personal_no': personal_no,
+                                    'name': name,
+                                    'department': dept,
+                                    'gender': gender,
+                                    'designation': designation,
+                                    'job_group': job_group
+                                }
+                                st.rerun()
+            
+            st.markdown("---")
+        else:
+            # No search performed yet - show initial message
+            st.info("🔍 Enter a search term above and click 'Search' to find employees")
+            
+            # Show a tip for searching
+            with st.expander("💡 Search Tips"):
+                st.markdown("""
+                - **Search by Name**: Type any part of the employee's name
+                - **Search by Staff No**: Enter the staff number
+                - **Search by Personal No**: Enter the ID/National ID number
+                - **Filter by Department**: Select a department to narrow results
+                - **Combine filters**: Use both search and department filter together
+                """)
             
             conn.close()
             return
-        
-        # =============================================
-        # DISPLAY EMPLOYEE CARDS
-        # =============================================
-        st.markdown("### 👤 Select Employee")
-        
-        # Create a nice grid of employee cards
-        cols_per_row = 3
-        for i in range(0, len(employees), cols_per_row):
-            cols = st.columns(cols_per_row)
-            for j in range(cols_per_row):
-                if i + j < len(employees):
-                    emp = employees[i + j]
-                    staff_no, personal_no, name, dept, gender, designation, job_group = emp
-                    
-                    with cols[j]:
-                        # Create a styled card
-                        card_html = f"""
-                        <div style="
-                            border: 1px solid #e0e0e0;
-                            border-radius: 10px;
-                            padding: 15px;
-                            margin: 5px 0;
-                            background: {'#f8f9fa' if gender == 'Female' else '#ffffff'};
-                            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                            height: 180px;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: space-between;
-                        ">
-                            <div>
-                                <strong style="font-size: 16px; color: #1a1a2e;">{name}</strong><br>
-                                <span style="color: #666; font-size: 14px;">Staff No: <strong>{staff_no}</strong></span><br>
-                                <span style="color: #666; font-size: 13px;">Department: {dept or 'N/A'}</span><br>
-                                <span style="color: #666; font-size: 13px;">Designation: {designation or 'N/A'}</span>
-                            </div>
-                            <div style="margin-top: 10px;">
-                                <span style="
-                                    background: {'#28a745' if gender == 'Male' else '#6f42c1'};
-                                    color: white;
-                                    padding: 2px 10px;
-                                    border-radius: 12px;
-                                    font-size: 12px;
-                                ">{gender or 'N/A'}</span>
-                                <span style="
-                                    background: '#17a2b8';
-                                    color: white;
-                                    padding: 2px 10px;
-                                    border-radius: 12px;
-                                    font-size: 12px;
-                                    margin-left: 5px;
-                                ">{job_group or 'N/A'}</span>
-                            </div>
-                        </div>
-                        """
-                        st.markdown(card_html, unsafe_allow_html=True)
-                        
-                        # Select button for this employee
-                        if st.button(f"📝 Select {name.split()[0]}", key=f"select_leave_{staff_no}", use_container_width=True):
-                            st.session_state.selected_staff_no = staff_no
-                            st.session_state.selected_employee = {
-                                'staff_no': staff_no,
-                                'personal_no': personal_no,
-                                'name': name,
-                                'department': dept,
-                                'gender': gender,
-                                'designation': designation,
-                                'job_group': job_group
-                            }
-                            st.rerun()
-        
-        st.markdown("---")
         
         # =============================================
         # LEAVE APPLICATION FORM (when employee selected)
@@ -1336,10 +1149,8 @@ def leave_application():
             with col2:
                 # Get leave balance - simplified for now
                 try:
-                    # Get current year
                     current_year = datetime.now().year
                     
-                    # Try to get balance from leave_balances table
                     try:
                         if is_cloud:
                             cursor.execute("""
@@ -1355,7 +1166,6 @@ def leave_application():
                         result = cursor.fetchone()
                         available_balance = result[0] if result else 30
                     except:
-                        # If table doesn't exist, show default
                         available_balance = 30
                     
                     st.info(f"📊 Available Balance: **{available_balance:.0f} days**")
@@ -1473,10 +1283,7 @@ def leave_application():
                             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             username = st.session_state.user.get('username', 'system')
                             
-                            # Get leave_type_id
                             leave_type_id = selected_leave_type
-                            
-                            # Check if acting_officer is valid
                             acting_officer_val = acting_officer if acting_officer else None
                             
                             if is_cloud:
@@ -1513,6 +1320,7 @@ def leave_application():
                             
                             # Update leave balance if table exists
                             try:
+                                current_year = datetime.now().year
                                 if is_cloud:
                                     cursor.execute("""
                                         UPDATE leave_balances 
@@ -1560,36 +1368,8 @@ def leave_application():
                 st.rerun()
         
         else:
-            st.info("👆 Please select an employee from the list above to apply for leave.")
-            
-            # Show recent leave applications if any
-            st.markdown("---")
-            st.subheader("📋 Recent Leave Applications")
-            
-            try:
-                if is_cloud:
-                    cursor.execute("""
-                        SELECT name, leave_type, start_date, end_date, status 
-                        FROM leave_applications 
-                        ORDER BY created_at DESC 
-                        LIMIT 5
-                    """)
-                else:
-                    cursor.execute("""
-                        SELECT name, leave_type, start_date, end_date, status 
-                        FROM leave_applications 
-                        ORDER BY created_at DESC 
-                        LIMIT 5
-                    """)
-                
-                recent_apps = cursor.fetchall()
-                if recent_apps:
-                    for app in recent_apps:
-                        st.write(f"**{app[0]}** - {app[1]} ({app[2]} to {app[3]}) - Status: {app[4]}")
-                else:
-                    st.info("No recent leave applications.")
-            except:
-                pass
+            if show_results and employees:
+                st.info("👆 Please select an employee from the list above to apply for leave.")
     
     except Exception as e:
         st.error(f"❌ Error loading employees: {str(e)}")
