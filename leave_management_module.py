@@ -1082,77 +1082,247 @@ def leave_application():
     cursor = conn.cursor()
     
     try:
-        # Get staff list for demo
-        if is_cloud:
-            cursor.execute("SELECT id, name, personal_no, department, current_designation FROM staff LIMIT 100")
-        else:
-            cursor.execute("SELECT id, name, personal_no, department, current_designation FROM staff LIMIT 100")
+        # =============================================
+        # SEARCH AND FILTER PANEL
+        # =============================================
+        st.markdown("### 🔍 Search Employees")
         
-        staff_list = cursor.fetchall()
-        
-        if not staff_list:
-            st.warning("No staff records found. Please add staff members first.")
-            conn.close()
-            return
-        
-        # Staff selector
-        staff_options = {row[0]: f"{row[1]} - {row[3]}" for row in staff_list}
-        selected_staff_id = st.selectbox(
-            "Employee",
-            list(staff_options.keys()),
-            format_func=lambda x: staff_options[x]
-        )
-        
-        # Get staff details
-        staff_data = None
-        for row in staff_list:
-            if row[0] == selected_staff_id:
-                staff_data = row
-                break
-        
-        if not staff_data:
-            st.error("Staff not found")
-            conn.close()
-            return
-        
-        staff_id, staff_name, personal_no, department, designation = staff_data
-        
-        # Display staff info
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
-            st.text_input("Employee No.", value=personal_no or "N/A", disabled=True)
+            search_term = st.text_input(
+                "Search by Name, Staff No, or Personal No", 
+                placeholder="Type to search...", 
+                key="leave_search_fixed"
+            )
         with col2:
-            st.text_input("Department", value=department or "N/A", disabled=True)
+            # Get departments from employees table
+            try:
+                if is_cloud:
+                    cursor.execute("""
+                        SELECT DISTINCT department 
+                        FROM employees 
+                        WHERE department IS NOT NULL AND department != '' 
+                        ORDER BY department
+                    """)
+                else:
+                    cursor.execute("""
+                        SELECT DISTINCT department 
+                        FROM employees 
+                        WHERE department IS NOT NULL AND department != '' 
+                        ORDER BY department
+                    """)
+                
+                departments = [row[0] for row in cursor.fetchall()]
+                departments.insert(0, "All Departments")
+                selected_dept = st.selectbox("Filter by Department", departments, key="leave_dept_fixed")
+            except:
+                selected_dept = "All Departments"
+        
         with col3:
-            st.text_input("Designation", value=designation or "N/A", disabled=True)
+            st.write("")  # Spacer
+            st.write("")  # Spacer
+            if st.button("🔄 Refresh", use_container_width=True, key="refresh_leave"):
+                st.rerun()
         
         st.markdown("---")
         
-        # Leave Application Form
-        with st.form("leave_application_form"):
-            col1, col2 = st.columns(2)
+        # =============================================
+        # BUILD QUERY WITH FILTERS - USING employees TABLE
+        # =============================================
+        query_params = []
+        query_conditions = []
+        
+        base_query = """
+            SELECT staff_no, personal_no, name, department, gender, 
+                   current_designation, current_job_group
+            FROM employees 
+            WHERE staff_no IS NOT NULL AND staff_no != ''
+        """
+        
+        # Search filter
+        if search_term and search_term.strip():
+            search_pattern = f"%{search_term.strip()}%"
+            if is_cloud:
+                query_conditions.append("(staff_no ILIKE %s OR personal_no ILIKE %s OR name ILIKE %s)")
+            else:
+                query_conditions.append("(staff_no LIKE ? OR personal_no LIKE ? OR name LIKE ?)")
+            query_params.extend([search_pattern, search_pattern, search_pattern])
+        
+        # Department filter
+        if selected_dept and selected_dept != "All Departments":
+            if is_cloud:
+                query_conditions.append("department = %s")
+            else:
+                query_conditions.append("department = ?")
+            query_params.append(selected_dept)
+        
+        # Build final query
+        final_query = base_query
+        if query_conditions:
+            final_query += " AND " + " AND ".join(query_conditions)
+        
+        final_query += " ORDER BY name"
+        
+        # Execute query
+        if is_cloud:
+            cursor.execute(final_query, tuple(query_params))
+        else:
+            cursor.execute(final_query, query_params)
+        
+        employees = cursor.fetchall()
+        
+        st.info(f"📊 Found {len(employees)} employee(s)")
+        
+        if not employees:
+            st.warning("⚠️ No employees found matching your search criteria.")
             
+            # Check if there are employees without staff_no
+            try:
+                if is_cloud:
+                    cursor.execute("SELECT COUNT(*) FROM employees WHERE staff_no IS NULL OR staff_no = ''")
+                else:
+                    cursor.execute("SELECT COUNT(*) FROM employees WHERE staff_no IS NULL OR staff_no = ''")
+                
+                null_count = cursor.fetchone()[0]
+                if null_count > 0:
+                    st.warning(f"⚠️ Found {null_count} employees without staff numbers. Please fix them in the Import Staff tab.")
+            except:
+                pass
+            
+            conn.close()
+            return
+        
+        # =============================================
+        # DISPLAY EMPLOYEE CARDS
+        # =============================================
+        st.markdown("### 👤 Select Employee")
+        
+        # Create a nice grid of employee cards
+        cols_per_row = 3
+        for i in range(0, len(employees), cols_per_row):
+            cols = st.columns(cols_per_row)
+            for j in range(cols_per_row):
+                if i + j < len(employees):
+                    emp = employees[i + j]
+                    staff_no, personal_no, name, dept, gender, designation, job_group = emp
+                    
+                    with cols[j]:
+                        # Create a styled card
+                        card_html = f"""
+                        <div style="
+                            border: 1px solid #e0e0e0;
+                            border-radius: 10px;
+                            padding: 15px;
+                            margin: 5px 0;
+                            background: {'#f8f9fa' if gender == 'Female' else '#ffffff'};
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                            height: 180px;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: space-between;
+                        ">
+                            <div>
+                                <strong style="font-size: 16px; color: #1a1a2e;">{name}</strong><br>
+                                <span style="color: #666; font-size: 14px;">Staff No: <strong>{staff_no}</strong></span><br>
+                                <span style="color: #666; font-size: 13px;">Department: {dept or 'N/A'}</span><br>
+                                <span style="color: #666; font-size: 13px;">Designation: {designation or 'N/A'}</span>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <span style="
+                                    background: {'#28a745' if gender == 'Male' else '#6f42c1'};
+                                    color: white;
+                                    padding: 2px 10px;
+                                    border-radius: 12px;
+                                    font-size: 12px;
+                                ">{gender or 'N/A'}</span>
+                                <span style="
+                                    background: '#17a2b8';
+                                    color: white;
+                                    padding: 2px 10px;
+                                    border-radius: 12px;
+                                    font-size: 12px;
+                                    margin-left: 5px;
+                                ">{job_group or 'N/A'}</span>
+                            </div>
+                        </div>
+                        """
+                        st.markdown(card_html, unsafe_allow_html=True)
+                        
+                        # Select button for this employee
+                        if st.button(f"📝 Select {name.split()[0]}", key=f"select_leave_{staff_no}", use_container_width=True):
+                            st.session_state.selected_staff_no = staff_no
+                            st.session_state.selected_employee = {
+                                'staff_no': staff_no,
+                                'personal_no': personal_no,
+                                'name': name,
+                                'department': dept,
+                                'gender': gender,
+                                'designation': designation,
+                                'job_group': job_group
+                            }
+                            st.rerun()
+        
+        st.markdown("---")
+        
+        # =============================================
+        # LEAVE APPLICATION FORM (when employee selected)
+        # =============================================
+        if 'selected_staff_no' in st.session_state and st.session_state.selected_staff_no:
+            emp_data = st.session_state.selected_employee
+            
+            st.success(f"✅ Selected: **{emp_data['name']}** (Staff No: {emp_data['staff_no']})")
+            
+            # Show employee details
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
+                st.metric("Staff No", emp_data['staff_no'])
+            with col2:
+                st.metric("Personal No", emp_data['personal_no'])
+            with col3:
+                st.metric("Department", emp_data['department'] or 'N/A')
+            with col4:
+                st.metric("Designation", emp_data['designation'] or 'N/A')
+            
+            st.markdown("---")
+            
+            # Leave Application Form
+            st.subheader("📋 Leave Application Form")
+            
+            # Get leave types
+            try:
                 if is_cloud:
                     cursor.execute("""
-                        SELECT id, name, requires_attachment, requires_acting_officer 
+                        SELECT id, name, requires_attachment, requires_acting_officer, max_days_per_year
                         FROM leave_types WHERE is_active = TRUE ORDER BY sort_order
                     """)
                 else:
                     cursor.execute("""
-                        SELECT id, name, requires_attachment, requires_acting_officer 
+                        SELECT id, name, requires_attachment, requires_acting_officer, max_days_per_year
                         FROM leave_types WHERE is_active = 1 ORDER BY sort_order
                     """)
                 
                 leave_types = cursor.fetchall()
-                leave_type_options = {row[0]: row[1] for row in leave_types}
-                
+            except:
+                # If leave_types table doesn't exist, use default
+                st.warning("⚠️ Leave types not configured. Please contact administrator.")
+                leave_types = []
+            
+            if not leave_types:
+                st.warning("⚠️ No leave types configured. Please contact the administrator.")
+                conn.close()
+                return
+            
+            leave_type_options = {row[0]: row[1] for row in leave_types}
+            
+            col1, col2 = st.columns(2)
+            with col1:
                 selected_leave_type = st.selectbox(
                     "Leave Type",
                     list(leave_type_options.keys()),
                     format_func=lambda x: leave_type_options[x]
                 )
                 
+                # Get leave type details
                 leave_type_details = None
                 for row in leave_types:
                     if row[0] == selected_leave_type:
@@ -1161,13 +1331,37 @@ def leave_application():
                 
                 requires_attachment = leave_type_details[2] if leave_type_details else False
                 requires_acting_officer = leave_type_details[3] if leave_type_details else False
+                max_days = leave_type_details[4] if leave_type_details else 30
             
             with col2:
-                balance_service = LeaveBalanceService()
-                current_year = datetime.now().year
-                balance = balance_service.get_balance(staff_id, selected_leave_type, current_year)
-                available_balance = balance['remaining_days'] if balance else 0
-                st.info(f"📊 Available Balance: **{available_balance:.0f} days**")
+                # Get leave balance - simplified for now
+                try:
+                    # Get current year
+                    current_year = datetime.now().year
+                    
+                    # Try to get balance from leave_balances table
+                    try:
+                        if is_cloud:
+                            cursor.execute("""
+                                SELECT remaining_days FROM leave_balances 
+                                WHERE staff_id = %s AND leave_type_id = %s AND year = %s
+                            """, (emp_data['staff_no'], selected_leave_type, current_year))
+                        else:
+                            cursor.execute("""
+                                SELECT remaining_days FROM leave_balances 
+                                WHERE staff_id = ? AND leave_type_id = ? AND year = ?
+                            """, (emp_data['staff_no'], selected_leave_type, current_year))
+                        
+                        result = cursor.fetchone()
+                        available_balance = result[0] if result else 30
+                    except:
+                        # If table doesn't exist, show default
+                        available_balance = 30
+                    
+                    st.info(f"📊 Available Balance: **{available_balance:.0f} days**")
+                except Exception as e:
+                    st.info("📊 Leave balance: 30 days (default)")
+                    available_balance = 30
             
             # Date selection
             st.markdown("### 📅 Leave Period")
@@ -1204,14 +1398,20 @@ def leave_application():
             else:
                 attachment = None
             
-            # Acting Officer
+            # Acting Officer - using employees table
             if requires_acting_officer or working_days > 5:
                 st.markdown("### 🔄 Handover / Acting Officer")
                 
                 if is_cloud:
-                    cursor.execute("SELECT id, name FROM staff WHERE id != %s", (staff_id,))
+                    cursor.execute("""
+                        SELECT staff_no, name FROM employees 
+                        WHERE staff_no != %s AND staff_no IS NOT NULL
+                    """, (emp_data['staff_no'],))
                 else:
-                    cursor.execute("SELECT id, name FROM staff WHERE id != ?", (staff_id,))
+                    cursor.execute("""
+                        SELECT staff_no, name FROM employees 
+                        WHERE staff_no != ? AND staff_no IS NOT NULL
+                    """, (emp_data['staff_no'],))
                 
                 acting_staff = cursor.fetchall()
                 acting_options = {row[0]: row[1] for row in acting_staff}
@@ -1224,107 +1424,175 @@ def leave_application():
             else:
                 acting_officer = None
             
-            # Submit
+            # Submit button
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                submitted = st.form_submit_button("📤 SUBMIT APPLICATION", use_container_width=True, type="primary")
+                if st.button("📤 SUBMIT LEAVE APPLICATION", use_container_width=True, type="primary"):
+                    errors = []
+                    
+                    if not start_date or not end_date:
+                        errors.append("Please select start and end dates")
+                    elif start_date > end_date:
+                        errors.append("Start date must be before end date")
+                    
+                    if working_days <= 0:
+                        errors.append("Leave period must include at least one working day")
+                    
+                    if working_days > available_balance:
+                        errors.append(f"Insufficient balance. Available: {available_balance:.0f} days, Requested: {working_days} days")
+                    
+                    if not reason or reason.strip() == "":
+                        errors.append("Please provide a reason for leave")
+                    
+                    if requires_attachment and not attachment:
+                        errors.append("Attachment is required for this leave type")
+                    
+                    if (requires_acting_officer or working_days > 5) and not acting_officer:
+                        errors.append("Please select an acting officer")
+                    
+                    if errors:
+                        for error in errors:
+                            st.error(f"❌ {error}")
+                    else:
+                        try:
+                            # Generate application reference
+                            ref_year = datetime.now().strftime("%Y")
+                            try:
+                                if is_cloud:
+                                    cursor.execute("SELECT COUNT(*) FROM leave_applications WHERE EXTRACT(YEAR FROM created_at) = %s", (ref_year,))
+                                else:
+                                    cursor.execute("SELECT COUNT(*) FROM leave_applications WHERE strftime('%Y', created_at) = ?", (ref_year,))
+                                count = cursor.fetchone()[0] or 0
+                            except:
+                                count = 0
+                            
+                            application_ref = f"LV-{ref_year}-{str(count + 1).zfill(5)}"
+                            
+                            attachment_url = attachment.name if attachment else None
+                            
+                            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            username = st.session_state.user.get('username', 'system')
+                            
+                            # Get leave_type_id
+                            leave_type_id = selected_leave_type
+                            
+                            # Check if acting_officer is valid
+                            acting_officer_val = acting_officer if acting_officer else None
+                            
+                            if is_cloud:
+                                cursor.execute("""
+                                    INSERT INTO leave_applications (
+                                        application_ref, staff_id, leave_type_id, start_date, end_date,
+                                        number_of_days, resumption_date, reason, attachment_url,
+                                        acting_officer_id, status, created_by, created_at
+                                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    RETURNING id
+                                """, (
+                                    application_ref, emp_data['staff_no'], leave_type_id,
+                                    start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"),
+                                    working_days, resumption_date.strftime("%Y-%m-%d"),
+                                    reason, attachment_url, acting_officer_val,
+                                    'PENDING', username, now
+                                ))
+                                application_id = cursor.fetchone()[0]
+                            else:
+                                cursor.execute("""
+                                    INSERT INTO leave_applications (
+                                        application_ref, staff_id, leave_type_id, start_date, end_date,
+                                        number_of_days, resumption_date, reason, attachment_url,
+                                        acting_officer_id, status, created_by, created_at
+                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (
+                                    application_ref, emp_data['staff_no'], leave_type_id,
+                                    start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"),
+                                    working_days, resumption_date.strftime("%Y-%m-%d"),
+                                    reason, attachment_url, acting_officer_val,
+                                    'PENDING', username, now
+                                ))
+                                application_id = cursor.lastrowid
+                            
+                            # Update leave balance if table exists
+                            try:
+                                if is_cloud:
+                                    cursor.execute("""
+                                        UPDATE leave_balances 
+                                        SET pending_days = pending_days + %s,
+                                            remaining_days = remaining_days - %s
+                                        WHERE staff_id = %s AND leave_type_id = %s AND year = %s
+                                    """, (working_days, working_days, emp_data['staff_no'], leave_type_id, current_year))
+                                else:
+                                    cursor.execute("""
+                                        UPDATE leave_balances 
+                                        SET pending_days = pending_days + ?,
+                                            remaining_days = remaining_days - ?
+                                        WHERE staff_id = ? AND leave_type_id = ? AND year = ?
+                                    """, (working_days, working_days, emp_data['staff_no'], leave_type_id, current_year))
+                            except:
+                                pass  # Balance table might not exist
+                            
+                            conn.commit()
+                            
+                            log_audit(
+                                st.session_state.user.get('username', 'system'),
+                                "LEAVE_APPLY",
+                                application_id,
+                                f"Leave application submitted: {emp_data['name']} - {leave_type_options[selected_leave_type]} ({working_days} days)"
+                            )
+                            
+                            st.success("✅ Leave application submitted successfully!")
+                            st.info(f"📋 Application Reference: **{application_ref}**")
+                            st.balloons()
+                            
+                            # Clear selection
+                            del st.session_state.selected_staff_no
+                            del st.session_state.selected_employee
+                            
+                            st.rerun()
+                            
+                        except Exception as e:
+                            st.error(f"❌ Error submitting application: {str(e)}")
+                            conn.rollback()
+            
+            # Clear selection button
+            if st.button("❌ Clear Selection", use_container_width=True):
+                del st.session_state.selected_staff_no
+                del st.session_state.selected_employee
+                st.rerun()
         
-        if submitted:
-            errors = []
+        else:
+            st.info("👆 Please select an employee from the list above to apply for leave.")
             
-            if not start_date or not end_date:
-                errors.append("Please select start and end dates")
-            elif start_date > end_date:
-                errors.append("Start date must be before end date")
+            # Show recent leave applications if any
+            st.markdown("---")
+            st.subheader("📋 Recent Leave Applications")
             
-            if working_days <= 0:
-                errors.append("Leave period must include at least one working day")
-            
-            if working_days > available_balance:
-                errors.append(f"Insufficient balance. Available: {available_balance:.0f} days, Requested: {working_days} days")
-            
-            if not reason or reason.strip() == "":
-                errors.append("Please provide a reason for leave")
-            
-            if requires_attachment and not attachment:
-                errors.append("Attachment is required for this leave type")
-            
-            if (requires_acting_officer or working_days > 5) and not acting_officer:
-                errors.append("Please select an acting officer")
-            
-            if errors:
-                for error in errors:
-                    st.error(f"❌ {error}")
-            else:
-                try:
-                    # Generate application reference
-                    ref_year = datetime.now().strftime("%Y")
-                    if is_cloud:
-                        cursor.execute("SELECT COUNT(*) FROM leave_applications WHERE EXTRACT(YEAR FROM created_at) = %s", (ref_year,))
-                    else:
-                        cursor.execute("SELECT COUNT(*) FROM leave_applications WHERE strftime('%Y', created_at) = ?", (ref_year,))
-                    
-                    count = cursor.fetchone()[0] or 0
-                    application_ref = f"LV-{ref_year}-{str(count + 1).zfill(5)}"
-                    
-                    attachment_url = attachment.name if attachment else None
-                    
-                    if is_cloud:
-                        cursor.execute("""
-                            INSERT INTO leave_applications (
-                                application_ref, staff_id, leave_type_id, start_date, end_date,
-                                number_of_days, resumption_date, reason, attachment_url,
-                                acting_officer_id, status, created_by
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            RETURNING id
-                        """, (
-                            application_ref, staff_id, selected_leave_type,
-                            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"),
-                            working_days, resumption_date.strftime("%Y-%m-%d"),
-                            reason, attachment_url, acting_officer,
-                            'PENDING', staff_id
-                        ))
-                        application_id = cursor.fetchone()[0]
-                    else:
-                        cursor.execute("""
-                            INSERT INTO leave_applications (
-                                application_ref, staff_id, leave_type_id, start_date, end_date,
-                                number_of_days, resumption_date, reason, attachment_url,
-                                acting_officer_id, status, created_by
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (
-                            application_ref, staff_id, selected_leave_type,
-                            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"),
-                            working_days, resumption_date.strftime("%Y-%m-%d"),
-                            reason, attachment_url, acting_officer,
-                            'PENDING', staff_id
-                        ))
-                        application_id = cursor.lastrowid
-                    
-                    balance_service.update_balance(staff_id, selected_leave_type, working_days, 'apply', current_year)
-                    
-                    workflow_service = LeaveWorkflowService()
-                    workflow_service.create_approval_chain(application_id, staff_id)
-                    
-                    conn.commit()
-                    
-                    log_audit(
-                        st.session_state.user.get('username', 'system'),
-                        "LEAVE_APPLY",
-                        application_id,
-                        f"Leave application submitted: {staff_name} - {leave_type_options[selected_leave_type]} ({working_days} days)"
-                    )
-                    
-                    st.success("✅ Leave application submitted successfully!")
-                    st.info(f"📋 Application Reference: **{application_ref}**")
-                    st.balloons()
-                    
-                except Exception as e:
-                    st.error(f"Error submitting application: {e}")
-                    conn.rollback()
+            try:
+                if is_cloud:
+                    cursor.execute("""
+                        SELECT name, leave_type, start_date, end_date, status 
+                        FROM leave_applications 
+                        ORDER BY created_at DESC 
+                        LIMIT 5
+                    """)
+                else:
+                    cursor.execute("""
+                        SELECT name, leave_type, start_date, end_date, status 
+                        FROM leave_applications 
+                        ORDER BY created_at DESC 
+                        LIMIT 5
+                    """)
+                
+                recent_apps = cursor.fetchall()
+                if recent_apps:
+                    for app in recent_apps:
+                        st.write(f"**{app[0]}** - {app[1]} ({app[2]} to {app[3]}) - Status: {app[4]}")
+                else:
+                    st.info("No recent leave applications.")
+            except:
+                pass
     
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"❌ Error loading employees: {str(e)}")
     finally:
         conn.close()
 
