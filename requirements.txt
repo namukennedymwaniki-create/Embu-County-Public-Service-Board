@@ -1,0 +1,25 @@
+streamlit==1.28.1
+pandas==2.0.3
+plotly==5.18.0
+sqlalchemy==1.4.49
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
+bcrypt==4.1.2
+openpyxl==3.1.2
+openai>=1.0.0
+pypdf2>=3.0.0
+pgvector>=0.2.0
+tiktoken>=0.5.0
+langchain>=0.1.0
+langchain-openai>=0.0.5
+google-generativeai>=0.3.0
+PyPDF2>=3.0.0
+pgvector>=0.2.0
+python-docx>=0.8.11
+# =========================================================
+# NEW PACKAGES FOR DOCUMENT STORAGE
+# =========================================================
+google-cloud-storage>=2.10.0   # For Google Cloud Storage (optional)
+boto3>=1.34.0                  # For AWS S3 (optional)
+azure-storage-blob>=12.19.0    # For Azure Blob Storage (optional)
+cryptography>=41.0.0           # For encryption (optional)
