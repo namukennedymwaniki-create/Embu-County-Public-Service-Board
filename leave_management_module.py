@@ -890,14 +890,34 @@ def leave_dashboard():
             """, (today, week_end))
         returning_this_week = cursor.fetchone()[0] or 0
         
+        # Get leave type breakdown for pie chart
+        if is_cloud:
+            cursor.execute("""
+                SELECT lt.name, COUNT(DISTINCT la.staff_id) as count
+                FROM leave_applications la
+                JOIN leave_types lt ON la.leave_type_id = lt.id
+                WHERE la.status = 'APPROVED' 
+                AND la.start_date <= %s AND la.end_date >= %s
+                GROUP BY lt.id, lt.name
+            """, (today, today))
+        else:
+            cursor.execute("""
+                SELECT lt.name, COUNT(DISTINCT la.staff_id) as count
+                FROM leave_applications la
+                JOIN leave_types lt ON la.leave_type_id = lt.id
+                WHERE la.status = 'APPROVED' 
+                AND la.start_date <= ? AND la.end_date >= ?
+                GROUP BY lt.id, lt.name
+            """, (today, today))
+        
+        leave_breakdown = cursor.fetchall()
+        
         # =============================================
         # MODERN DASHBOARD DESIGN
         # =============================================
         
-        # Custom CSS for the dashboard
         st.markdown("""
         <style>
-        /* Modern card styles */
         .dashboard-card {
             background: white;
             border-radius: 16px;
@@ -915,7 +935,7 @@ def leave_dashboard():
             color: #6b7280;
             font-size: 13px;
             font-weight: 500;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
         }
         .card-value {
             font-size: 28px;
@@ -1003,6 +1023,36 @@ def leave_dashboard():
             color: #4A90D9;
             font-weight: 500;
         }
+        .upcoming-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .upcoming-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1a1a2e;
+        }
+        .upcoming-detail {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .status-pill {
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .status-pill.approved {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-pill.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
         </style>
         """, unsafe_allow_html=True)
         
@@ -1020,7 +1070,7 @@ def leave_dashboard():
                     font-weight: 700;
                     color: #1a1a2e;
                     margin: 0;
-                ">Leaves</h1>
+                ">🏖️ Leave Management Dashboard</h1>
             </div>
             <div style="
                 background: #f0f0f0;
@@ -1035,90 +1085,187 @@ def leave_dashboard():
         """.format(date=datetime.now().strftime("%d %B %Y")), unsafe_allow_html=True)
         
         # =============================================
-        # ROW 1: LEAVE STATISTICS CARDS
+        # ROW 1: KPI CARDS
         # =============================================
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             st.markdown(f"""
             <div class="dashboard-card">
-                <div class="card-title">📋 Privilege Leave</div>
-                <div class="card-value">{total_staff}</div>
-                <div style="display: flex; gap: 20px; margin-top: 12px;">
-                    <div>
-                        <div class="stat-label">Available</div>
-                        <div class="stat-number">{total_staff - on_leave_today}</div>
-                    </div>
-                    <div>
-                        <div class="stat-label">Consumed</div>
-                        <div class="stat-number">{on_leave_today}</div>
-                    </div>
-                </div>
+                <div class="card-title">👥 Total Staff</div>
+                <div class="card-value">{total_staff:,}</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
             <div class="dashboard-card">
-                <div class="card-title">💍 Marriage Leave</div>
-                <div style="display: flex; gap: 20px; margin-top: 8px;">
-                    <div>
-                        <div class="stat-label">Total</div>
-                        <div class="stat-number">10</div>
-                    </div>
-                    <div>
-                        <div class="stat-label">Consumed</div>
-                        <div class="stat-number">3</div>
-                    </div>
-                </div>
+                <div class="card-title">🏖️ On Leave Today</div>
+                <div class="card-value">{on_leave_today}</div>
+                <div class="card-sub">{ (on_leave_today / total_staff * 100) if total_staff > 0 else 0:.1f}% of workforce</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
             st.markdown(f"""
             <div class="dashboard-card">
-                <div class="card-title">⏸️ Leave Without Pay</div>
-                <div style="display: flex; gap: 20px; margin-top: 8px;">
-                    <div>
-                        <div class="stat-label">Inactive</div>
-                        <div class="stat-number">10</div>
-                    </div>
-                    <div>
-                        <div class="stat-label">Consumed</div>
-                        <div class="stat-number">3</div>
-                    </div>
-                </div>
+                <div class="card-title">⏳ Pending Applications</div>
+                <div class="card-value">{pending_applications}</div>
+                <div class="card-sub">Awaiting approval</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="dashboard-card">
+                <div class="card-title">🔄 Returning This Week</div>
+                <div class="card-value">{returning_this_week}</div>
+                <div class="card-sub">Will resume duty</div>
             </div>
             """, unsafe_allow_html=True)
         
         st.markdown("---")
         
         # =============================================
-        # ROW 2: HOLIDAYS + APPLIED LEAVES + CALENDAR
+        # ROW 2: PIE CHART + UPCOMING LEAVE + HOLIDAYS
         # =============================================
-        col1, col2, col3 = st.columns([1.2, 1.2, 1])
+        col1, col2, col3 = st.columns([1.4, 1.6, 1])
         
         with col1:
+            # Pie Chart - Leave Breakdown
             st.markdown("""
             <div class="dashboard-card">
-                <div class="card-title">📅 Holidays</div>
+                <div class="card-title">📊 Leave Distribution</div>
             """, unsafe_allow_html=True)
             
-            # Get public holidays
+            if leave_breakdown:
+                # Create pie chart data
+                import plotly.express as px
+                
+                chart_data = pd.DataFrame(leave_breakdown, columns=['Leave Type', 'Count'])
+                
+                # Colors for different leave types
+                colors = ['#4A90D9', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C', '#E67E22']
+                
+                fig = px.pie(
+                    chart_data,
+                    values='Count',
+                    names='Leave Type',
+                    title='',
+                    color_discrete_sequence=colors,
+                    hole=0.4
+                )
+                fig.update_traces(
+                    textposition='inside',
+                    textinfo='percent+label',
+                    textfont_size=12,
+                    hoverinfo='label+value+percent'
+                )
+                fig.update_layout(
+                    showlegend=False,
+                    height=280,
+                    margin=dict(l=20, r=20, t=20, b=20),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#1a1a2e')
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No staff currently on leave")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        with col2:
+            # Upcoming Leave - Staff proceeding on leave soon
+            st.markdown("""
+            <div class="dashboard-card">
+                <div class="card-title">📋 Upcoming Leave</div>
+            """, unsafe_allow_html=True)
+            
+            # Get upcoming leave (next 14 days)
+            future_date = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
+            try:
+                if is_cloud:
+                    cursor.execute("""
+                        SELECT 
+                            e.name,
+                            lt.name as leave_type,
+                            la.start_date,
+                            la.end_date,
+                            la.status
+                        FROM leave_applications la
+                        JOIN employees e ON la.staff_id = e.staff_no
+                        JOIN leave_types lt ON la.leave_type_id = lt.id
+                        WHERE la.start_date BETWEEN %s AND %s
+                        AND la.status IN ('APPROVED', 'PENDING')
+                        ORDER BY la.start_date ASC
+                        LIMIT 8
+                    """, (today, future_date))
+                else:
+                    cursor.execute("""
+                        SELECT 
+                            e.name,
+                            lt.name as leave_type,
+                            la.start_date,
+                            la.end_date,
+                            la.status
+                        FROM leave_applications la
+                        JOIN employees e ON la.staff_id = e.staff_no
+                        JOIN leave_types lt ON la.leave_type_id = lt.id
+                        WHERE la.start_date BETWEEN ? AND ?
+                        AND la.status IN ('APPROVED', 'PENDING')
+                        ORDER BY la.start_date ASC
+                        LIMIT 8
+                    """, (today, future_date))
+                
+                upcoming_leaves = cursor.fetchall()
+                
+                if upcoming_leaves:
+                    for name, leave_type, start_date, end_date, status in upcoming_leaves:
+                        start_obj = datetime.strptime(str(start_date), "%Y-%m-%d")
+                        start_str = start_obj.strftime("%d %b")
+                        status_class = "approved" if status == "APPROVED" else "pending"
+                        status_label = "✅ Approved" if status == "APPROVED" else "⏳ Pending"
+                        
+                        st.markdown(f"""
+                        <div class="upcoming-item">
+                            <div>
+                                <div class="upcoming-name">{name}</div>
+                                <div class="upcoming-detail">
+                                    {leave_type} • {start_str} - {end_date}
+                                </div>
+                            </div>
+                            <span class="status-pill {status_class}">{status_label}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("No upcoming leave scheduled")
+            except Exception as e:
+                st.info("No upcoming leave scheduled")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        with col3:
+            # Holidays
+            st.markdown("""
+            <div class="dashboard-card">
+                <div class="card-title">📅 Upcoming Holidays</div>
+            """, unsafe_allow_html=True)
+            
             try:
                 if is_cloud:
                     cursor.execute("""
                         SELECT name, date FROM public_holidays 
                         WHERE date >= date('now') 
                         ORDER BY date ASC 
-                        LIMIT 10
+                        LIMIT 8
                     """)
                 else:
                     cursor.execute("""
                         SELECT name, date FROM public_holidays 
                         WHERE date >= date('now') 
                         ORDER BY date ASC 
-                        LIMIT 10
+                        LIMIT 8
                     """)
                 holidays = cursor.fetchall()
                 
@@ -1157,170 +1304,106 @@ def leave_dashboard():
             
             st.markdown("</div>", unsafe_allow_html=True)
         
-        with col2:
-            st.markdown("""
-            <div class="dashboard-card">
-                <div class="card-title">📋 Applied Leaves</div>
-            """, unsafe_allow_html=True)
-            
-            # Get applied leaves
-            try:
-                if is_cloud:
-                    cursor.execute("""
-                        SELECT start_date, reason FROM leave_applications 
-                        WHERE status = 'PENDING' OR status = 'APPROVED'
-                        ORDER BY start_date DESC 
-                        LIMIT 8
-                    """)
-                else:
-                    cursor.execute("""
-                        SELECT start_date, reason FROM leave_applications 
-                        WHERE status = 'PENDING' OR status = 'APPROVED'
-                        ORDER BY start_date DESC 
-                        LIMIT 8
-                    """)
-                applied_leaves = cursor.fetchall()
-                
-                if applied_leaves:
-                    for date, reason in applied_leaves:
-                        date_obj = datetime.strptime(str(date), "%Y-%m-%d")
-                        st.markdown(f"""
-                        <div class="leave-item">
-                            <div class="leave-date">{date_obj.strftime("%d %b, %Y")}</div>
-                            <div class="leave-reason">{reason or "No reason provided"}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("No applied leaves")
-            except:
-                # Default applied leaves
-                default_leaves = [
-                    {"date": "17 June, 2022", "reason": "Going to home town"},
-                    {"date": "10 June, 2022", "reason": "Social leave"},
-                    {"date": "21 May, 2022", "reason": "Doing to out of town."},
-                    {"date": "7 April, 2022", "reason": "Sick leave"},
-                    {"date": "5 April, 2022", "reason": "Social leave"},
-                    {"date": "21 Mar, 2022", "reason": "Going to out of town."},
-                    {"date": "7 Mar, 2022", "reason": "Sick leave"},
-                    {"date": "5 Feb, 2022", "reason": "Social leave"},
-                ]
-                for leave in default_leaves:
-                    st.markdown(f"""
-                    <div class="leave-item">
-                        <div class="leave-date">{leave['date']}</div>
-                        <div class="leave-reason">{leave['reason']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            
-            st.markdown("</div>", unsafe_allow_html=True)
+        # =============================================
+        # ROW 3: RECENT APPLIED LEAVES
+        # =============================================
+        st.markdown("---")
+        st.markdown("### 📋 Recent Leave Applications")
         
-        with col3:
-            st.markdown("""
-            <div class="dashboard-card">
-                <div class="card-title">📅 Leave Calendar</div>
-            """, unsafe_allow_html=True)
+        try:
+            if is_cloud:
+                cursor.execute("""
+                    SELECT 
+                        e.name,
+                        lt.name as leave_type,
+                        la.start_date,
+                        la.end_date,
+                        la.number_of_days,
+                        la.status,
+                        la.reason
+                    FROM leave_applications la
+                    JOIN employees e ON la.staff_id = e.staff_no
+                    JOIN leave_types lt ON la.leave_type_id = lt.id
+                    ORDER BY la.created_at DESC
+                    LIMIT 10
+                """)
+            else:
+                cursor.execute("""
+                    SELECT 
+                        e.name,
+                        lt.name as leave_type,
+                        la.start_date,
+                        la.end_date,
+                        la.number_of_days,
+                        la.status,
+                        la.reason
+                    FROM leave_applications la
+                    JOIN employees e ON la.staff_id = e.staff_no
+                    JOIN leave_types lt ON la.leave_type_id = lt.id
+                    ORDER BY la.created_at DESC
+                    LIMIT 10
+                """)
             
-            # Get staff on leave today and upcoming
-            try:
-                today = datetime.now().strftime("%Y-%m-%d")
-                tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-                
-                if is_cloud:
-                    cursor.execute("""
-                        SELECT e.name, e.current_designation, la.start_date
-                        FROM leave_applications la
-                        JOIN employees e ON la.staff_id = e.staff_no
-                        WHERE la.status = 'APPROVED' 
-                        AND la.start_date >= %s
-                        ORDER BY la.start_date ASC
-                        LIMIT 6
-                    """, (today,))
-                else:
-                    cursor.execute("""
-                        SELECT e.name, e.current_designation, la.start_date
-                        FROM leave_applications la
-                        JOIN employees e ON la.staff_id = e.staff_no
-                        WHERE la.status = 'APPROVED' 
-                        AND la.start_date >= ?
-                        ORDER BY la.start_date ASC
-                        LIMIT 6
-                    """, (today,))
-                
-                calendar_events = cursor.fetchall()
-                
-                if calendar_events:
-                    for i, (name, designation, start_date) in enumerate(calendar_events):
-                        date_obj = datetime.strptime(str(start_date), "%Y-%m-%d")
-                        day_label = "Today" if i == 0 else date_obj.strftime("%A")
-                        st.markdown(f"""
-                        <div class="calendar-event">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <div class="event-name">{name}</div>
-                                    <div class="event-role">{designation or 'Staff'}</div>
-                                </div>
-                                <div class="event-day">{day_label}</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("No upcoming leave events")
-            except:
-                # Default calendar events
-                default_events = [
-                    {"name": "Guy Hawkins", "role": "UX/UI Designer", "day": "Today"},
-                    {"name": "Floyd Miles", "role": "Python Developer", "day": "Tomorrow"},
-                    {"name": "Kristin James", "role": "Python Developer", "day": "Choose Date"},
-                    {"name": "Robert Fox", "role": "Lawful Developer", "day": "RECITED"},
-                    {"name": "Kristin Watson", "role": "Graphic Designer", "day": "APPRIVED"},
-                    {"name": "Makson Abbott", "role": "Business Analyst", "day": "APPRIVED"},
-                ]
-                for event in default_events:
-                    st.markdown(f"""
-                    <div class="calendar-event">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div class="event-name">{event['name']}</div>
-                                <div class="event-role">{event['role']}</div>
-                            </div>
-                            <div class="event-day">{event['day']}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+            recent_applications = cursor.fetchall()
             
-            st.markdown("""
-                <div style="margin-top: 12px;">
-                    <div class="holiday-item">
-                        <span>📅 10 May to 13 May</span>
-                        <span class="holiday-date">●</span>
-                    </div>
-                    <div class="holiday-item">
-                        <span>📅 10 May to 13 May</span>
-                        <span class="holiday-date">●</span>
-                    </div>
-                    <div class="holiday-item">
-                        <span>📅 10 May to 13 May</span>
-                        <span class="holiday-date">●</span>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("</div>", unsafe_allow_html=True)
+            if recent_applications:
+                # Create a dataframe for display
+                df = pd.DataFrame(recent_applications, columns=[
+                    'Employee', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Status', 'Reason'
+                ])
+                
+                # Format dates
+                df['Start Date'] = pd.to_datetime(df['Start Date']).dt.strftime('%d/%m/%Y')
+                df['End Date'] = pd.to_datetime(df['End Date']).dt.strftime('%d/%m/%Y')
+                
+                # Color status
+                def status_color(status):
+                    if status == 'APPROVED':
+                        return '🟢 Approved'
+                    elif status == 'PENDING':
+                        return '🟡 Pending'
+                    elif status == 'REJECTED':
+                        return '🔴 Rejected'
+                    elif status == 'RETURNED':
+                        return '🔄 Returned'
+                    else:
+                        return status
+                
+                df['Status'] = df['Status'].apply(status_color)
+                
+                st.dataframe(
+                    df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        'Employee': st.column_config.TextColumn('Employee', width='medium'),
+                        'Leave Type': st.column_config.TextColumn('Leave Type', width='small'),
+                        'Start Date': st.column_config.TextColumn('From', width='small'),
+                        'End Date': st.column_config.TextColumn('To', width='small'),
+                        'Days': st.column_config.NumberColumn('Days', width='small'),
+                        'Status': st.column_config.TextColumn('Status', width='small'),
+                        'Reason': st.column_config.TextColumn('Reason', width='large'),
+                    }
+                )
+            else:
+                st.info("No recent leave applications")
+        except Exception as e:
+            st.info("No recent leave applications")
         
         # =============================================
-        # ROW 3: QUICK STATS BAR
+        # ROW 4: QUICK STATS FOOTER
         # =============================================
         st.markdown("---")
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("👥 Total Staff", total_staff)
+            st.metric("👥 Total Staff", f"{total_staff:,}")
         with col2:
             st.metric("🏖️ On Leave", on_leave_today)
         with col3:
             st.metric("⏳ Pending", pending_applications)
         with col4:
-            st.metric("🔄 Returning", returning_this_week)
+            st.metric("🔄 Returning This Week", returning_this_week)
         
     except Exception as e:
         st.error(f"Error loading dashboard: {e}")
