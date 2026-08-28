@@ -1434,7 +1434,9 @@ def leave_approvals():
                     la.status, 
                     la.submitted_at,
                     la.staff_id,
-                    la.leave_type_id
+                    la.leave_type_id,
+                    e.personal_no,
+                    e.current_designation
                 FROM leave_applications la
                 JOIN employees e ON la.staff_id = e.staff_no
                 JOIN leave_types lt ON la.leave_type_id = lt.id
@@ -1457,7 +1459,9 @@ def leave_approvals():
                     la.status, 
                     la.submitted_at,
                     la.staff_id,
-                    la.leave_type_id
+                    la.leave_type_id,
+                    e.personal_no,
+                    e.current_designation
                 FROM leave_applications la
                 JOIN employees e ON la.staff_id = e.staff_no
                 JOIN leave_types lt ON la.leave_type_id = lt.id
@@ -1469,7 +1473,6 @@ def leave_approvals():
         
         if not pending_applications:
             st.info("✅ No pending leave applications")
-            # Clear any selected application
             if 'leave_application_id' in st.session_state:
                 del st.session_state.leave_application_id
             conn.close()
@@ -1488,135 +1491,300 @@ def leave_approvals():
         st.markdown("---")
         
         for app in pending_applications:
-            app_id, ref, name, department, leave_type, start_date, end_date, days, resumption_date, reason, status, submitted, staff_id, leave_type_id = app
+            app_id, ref, name, department, leave_type, start_date, end_date, days, resumption_date, reason, status, submitted, staff_id, leave_type_id, personal_no, designation = app
             
             # Convert dates to strings for display
-            start_date_str = str(start_date) if start_date else "N/A"
-            end_date_str = str(end_date) if end_date else "N/A"
-            resumption_str = str(resumption_date) if resumption_date else "N/A"
-            submitted_str = str(submitted) if submitted else "N/A"
+            start_date_str = start_date.strftime("%d/%m/%Y") if start_date else "N/A"
+            end_date_str = end_date.strftime("%d/%m/%Y") if end_date else "N/A"
+            resumption_str = resumption_date.strftime("%d/%m/%Y") if resumption_date else "N/A"
+            submitted_str = submitted.strftime("%d/%m/%Y %H:%M") if submitted else "N/A"
             
             # Check if this is the selected application for review
             is_selected = st.session_state.get('leave_application_id') == app_id
             
             with st.container():
-                # Collapsible header
-                expander_label = f"📋 {ref} - {name} ({leave_type}) - {days} days"
-                
                 if is_selected:
-                    # Show expanded view
-                    st.markdown(f"### {expander_label}")
+                    # Create a professional approval card
+                    st.markdown(f"""
+                    <div style="
+                        border: 2px solid #4A90D9;
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin: 10px 0;
+                        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    ">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px;">
+                            <h3 style="color: #1a1a2e; margin: 0;">📄 LEAVE APPLICATION</h3>
+                            <div>
+                                <span style="background: #f39c12; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: bold;">🟡 PENDING</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                            <div>
+                                <strong>Application No:</strong> {ref}
+                            </div>
+                            <div>
+                                <strong>Status:</strong> <span style="color: #f39c12;">🟡 PENDING</span>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
-                    # Display details in columns
-                    col1, col2, col3, col4 = st.columns(4)
+                    # Employee Details
+                    col1, col2 = st.columns(2)
                     with col1:
-                        st.metric("Employee", name)
-                        st.caption(f"Staff No: {staff_id}")
-                    with col2:
-                        st.metric("Department", department or "N/A")
-                        st.caption(f"Leave Type: {leave_type}")
-                    with col3:
-                        st.metric("Period", f"{start_date_str} → {end_date_str}")
-                        st.caption(f"{days} days")
-                    with col4:
-                        st.metric("Resumption", resumption_str)
-                        st.caption(f"Submitted: {submitted_str}")
+                        st.markdown("""
+                        <div style="
+                            background: white;
+                            border-radius: 8px;
+                            padding: 15px;
+                            border: 1px solid #e0e0e0;
+                            margin: 10px 0;
+                        ">
+                            <h4 style="color: #1a1a2e; margin-top: 0;">👤 Employee Details</h4>
+                        """, unsafe_allow_html=True)
+                        st.write(f"**Employee:** {name}")
+                        st.write(f"**Staff No:** {staff_id}")
+                        st.write(f"**Personal No:** {personal_no or 'N/A'}")
+                        st.write(f"**Department:** {department or 'N/A'}")
+                        st.write(f"**Designation:** {designation or 'N/A'}")
+                        st.markdown("</div>", unsafe_allow_html=True)
                     
-                    st.markdown("---")
+                    with col2:
+                        st.markdown("""
+                        <div style="
+                            background: white;
+                            border-radius: 8px;
+                            padding: 15px;
+                            border: 1px solid #e0e0e0;
+                            margin: 10px 0;
+                        ">
+                            <h4 style="color: #1a1a2e; margin-top: 0;">📅 Leave Details</h4>
+                        """, unsafe_allow_html=True)
+                        st.write(f"**Leave Type:** {leave_type}")
+                        st.write(f"**From:** {start_date_str}")
+                        st.write(f"**To:** {end_date_str}")
+                        st.write(f"**Days:** {days}")
+                        st.write(f"**Resumption:** {resumption_str}")
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    # Balance Information
+                    try:
+                        current_year = datetime.now().year
+                        if is_cloud:
+                            cursor.execute("""
+                                SELECT remaining_days FROM leave_balances 
+                                WHERE staff_id = %s AND leave_type_id = %s AND year = %s
+                            """, (staff_id, leave_type_id, current_year))
+                        else:
+                            cursor.execute("""
+                                SELECT remaining_days FROM leave_balances 
+                                WHERE staff_id = ? AND leave_type_id = ? AND year = ?
+                            """, (staff_id, leave_type_id, current_year))
+                        
+                        balance_result = cursor.fetchone()
+                        remaining_balance = balance_result[0] if balance_result else 0
+                        
+                        st.markdown(f"""
+                        <div style="
+                            background: #e8f4fd;
+                            border-radius: 8px;
+                            padding: 10px 15px;
+                            margin: 10px 0;
+                            border-left: 4px solid #4A90D9;
+                        ">
+                            <strong>📊 Balance:</strong> {remaining_balance + days:.0f} → {remaining_balance:.0f} days
+                        </div>
+                        """, unsafe_allow_html=True)
+                    except:
+                        pass
                     
                     # Reason
-                    st.markdown("**Reason**")
-                    st.info(reason or "No reason provided")
+                    if reason:
+                        st.markdown("""
+                        <div style="
+                            background: #f8f9fa;
+                            border-radius: 8px;
+                            padding: 15px;
+                            margin: 10px 0;
+                            border: 1px solid #e0e0e0;
+                        ">
+                            <h4 style="color: #1a1a2e; margin-top: 0;">📝 Reason</h4>
+                        """, unsafe_allow_html=True)
+                        st.info(reason)
+                        st.markdown("</div>", unsafe_allow_html=True)
                     
-                    st.markdown("---")
+                    # Approval History
+                    st.markdown("""
+                    <div style="
+                        background: white;
+                        border-radius: 8px;
+                        padding: 15px;
+                        margin: 10px 0;
+                        border: 1px solid #e0e0e0;
+                    ">
+                        <h4 style="color: #1a1a2e; margin-top: 0;">📋 Approval History</h4>
+                    """, unsafe_allow_html=True)
                     
-                    # Approval Actions
-                    st.markdown("### ✅ Approval Actions")
+                    # Get approval history
+                    try:
+                        if is_cloud:
+                            cursor.execute("""
+                                SELECT approver_role, status, comment, approved_at
+                                FROM leave_approvals 
+                                WHERE application_id = %s
+                                ORDER BY level ASC
+                            """, (app_id,))
+                        else:
+                            cursor.execute("""
+                                SELECT approver_role, status, comment, approved_at
+                                FROM leave_approvals 
+                                WHERE application_id = ?
+                                ORDER BY level ASC
+                            """, (app_id,))
+                        
+                        approvals = cursor.fetchall()
+                        
+                        if approvals:
+                            for approver_role, status, comment, approved_at in approvals:
+                                status_icon = "✅" if status == "APPROVED" else "❌" if status == "REJECTED" else "⏳"
+                                status_color = "#28a745" if status == "APPROVED" else "#dc3545" if status == "REJECTED" else "#ffc107"
+                                st.markdown(f"""
+                                <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+                                    <span><strong>{approver_role}</strong></span>
+                                    <span style="color: {status_color};">{status_icon} {status}</span>
+                                    <span style="color: #666; font-size: 12px;">{approved_at.strftime('%d/%m/%Y %H:%M') if approved_at else 'Pending'}</span>
+                                </div>
+                                """, unsafe_allow_html=True)
+                        else:
+                            st.markdown("""
+                            <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+                                <span><strong>Employee</strong></span>
+                                <span style="color: #28a745;">✅ Submitted</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+                                <span><strong>Supervisor</strong></span>
+                                <span style="color: #ffc107;">⏳ Pending</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+                                <span><strong>HOD</strong></span>
+                                <span style="color: #ffc107;">⏳ Pending</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                                <span><strong>HR</strong></span>
+                                <span style="color: #ffc107;">⏳ Pending</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    except:
+                        # Default approval history
+                        st.markdown("""
+                        <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+                            <span><strong>Employee</strong></span>
+                            <span style="color: #28a745;">✅ Submitted</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+                            <span><strong>Supervisor</strong></span>
+                            <span style="color: #ffc107;">⏳ Pending</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+                            <span><strong>HOD</strong></span>
+                            <span style="color: #ffc107;">⏳ Pending</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                            <span><strong>HR</strong></span>
+                            <span style="color: #ffc107;">⏳ Pending</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    # Comments Section
+                    st.markdown("""
+                    <div style="
+                        background: white;
+                        border-radius: 8px;
+                        padding: 15px;
+                        margin: 10px 0;
+                        border: 1px solid #e0e0e0;
+                    ">
+                        <h4 style="color: #1a1a2e; margin-top: 0;">💬 Comments</h4>
+                    """, unsafe_allow_html=True)
+                    
                     comment = st.text_area(
-                        "Comment (optional)", 
-                        placeholder="Add your comments...", 
+                        "Add your comments...",
+                        placeholder="Type your comments here...",
                         key=f"comment_{app_id}",
-                        height=80
+                        height=80,
+                        label_visibility="collapsed"
                     )
+                    st.markdown("</div>", unsafe_allow_html=True)
                     
-                    col1, col2, col3 = st.columns(3)
+                    # Action Buttons
+                    st.markdown("""
+                    <div style="
+                        background: white;
+                        border-radius: 8px;
+                        padding: 15px;
+                        margin: 10px 0;
+                        border: 1px solid #e0e0e0;
+                    ">
+                    """, unsafe_allow_html=True)
+                    
+                    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
                     with col1:
-                        if st.button("✅ Approve", key=f"approve_{app_id}", use_container_width=True, type="primary"):
+                        if st.button("❌ Reject", key=f"reject_{app_id}", use_container_width=True):
                             try:
-                                # Update approval status
                                 if is_cloud:
                                     cursor.execute("""
                                         UPDATE leave_applications 
-                                        SET status = 'APPROVED', approved_at = CURRENT_TIMESTAMP
+                                        SET status = 'REJECTED'
                                         WHERE id = %s
                                     """, (app_id,))
                                 else:
                                     cursor.execute("""
                                         UPDATE leave_applications 
-                                        SET status = 'APPROVED', approved_at = CURRENT_TIMESTAMP
+                                        SET status = 'REJECTED'
                                         WHERE id = ?
                                     """, (app_id,))
                                 
-                                # Update leave balance
+                                # Return days to balance
                                 try:
                                     current_year = datetime.now().year
                                     if is_cloud:
                                         cursor.execute("""
                                             UPDATE leave_balances 
                                             SET pending_days = pending_days - %s,
-                                                approved_days = approved_days + %s,
-                                                taken_days = taken_days + %s
+                                                remaining_days = remaining_days + %s
                                             WHERE staff_id = %s AND leave_type_id = %s AND year = %s
-                                        """, (days, days, days, staff_id, leave_type_id, current_year))
+                                        """, (days, days, staff_id, leave_type_id, current_year))
                                     else:
                                         cursor.execute("""
                                             UPDATE leave_balances 
                                             SET pending_days = pending_days - ?,
-                                                approved_days = approved_days + ?,
-                                                taken_days = taken_days + ?
+                                                remaining_days = remaining_days + ?
                                             WHERE staff_id = ? AND leave_type_id = ? AND year = ?
-                                        """, (days, days, days, staff_id, leave_type_id, current_year))
-                                except Exception as balance_error:
-                                    # Balance table might not exist or have different structure
+                                        """, (days, days, staff_id, leave_type_id, current_year))
+                                except:
                                     pass
-                                
-                                # Add approval comment if provided
-                                if comment and comment.strip():
-                                    try:
-                                        if is_cloud:
-                                            cursor.execute("""
-                                                INSERT INTO leave_approvals (
-                                                    application_id, approver_id, approver_role, status, comment, level
-                                                ) VALUES (%s, %s, %s, %s, %s, %s)
-                                            """, (app_id, 1, 'SUPERVISOR', 'APPROVED', comment, 1))
-                                        else:
-                                            cursor.execute("""
-                                                INSERT INTO leave_approvals (
-                                                    application_id, approver_id, approver_role, status, comment, level
-                                                ) VALUES (?, ?, ?, ?, ?, ?)
-                                            """, (app_id, 1, 'SUPERVISOR', 'APPROVED', comment, 1))
-                                    except:
-                                        pass
                                 
                                 conn.commit()
                                 
                                 log_audit(
                                     st.session_state.user.get('username', 'system'), 
-                                    "LEAVE_APPROVE", 
+                                    "LEAVE_REJECT", 
                                     app_id, 
-                                    f"Leave application {ref} approved"
+                                    f"Leave application {ref} rejected"
                                 )
                                 
-                                st.success(f"✅ Application {ref} approved successfully!")
-                                
-                                # Mark as processed and refresh
+                                st.success(f"✅ Application {ref} rejected!")
                                 st.session_state.leave_application_processed = True
                                 if 'leave_application_id' in st.session_state:
                                     del st.session_state.leave_application_id
                                 st.rerun()
                                 
                             except Exception as e:
-                                st.error(f"Error approving: {e}")
+                                st.error(f"Error rejecting: {e}")
                                 conn.rollback()
                     
                     with col2:
@@ -1655,24 +1823,6 @@ def leave_approvals():
                                 except:
                                     pass
                                 
-                                # Add return comment if provided
-                                if comment and comment.strip():
-                                    try:
-                                        if is_cloud:
-                                            cursor.execute("""
-                                                INSERT INTO leave_approvals (
-                                                    application_id, approver_id, approver_role, status, comment, level
-                                                ) VALUES (%s, %s, %s, %s, %s, %s)
-                                            """, (app_id, 1, 'SUPERVISOR', 'RETURNED', comment, 1))
-                                        else:
-                                            cursor.execute("""
-                                                INSERT INTO leave_approvals (
-                                                    application_id, approver_id, approver_role, status, comment, level
-                                                ) VALUES (?, ?, ?, ?, ?, ?)
-                                            """, (app_id, 1, 'SUPERVISOR', 'RETURNED', comment, 1))
-                                    except:
-                                        pass
-                                
                                 conn.commit()
                                 
                                 log_audit(
@@ -1683,7 +1833,6 @@ def leave_approvals():
                                 )
                                 
                                 st.success(f"✅ Application {ref} returned for revision!")
-                                
                                 st.session_state.leave_application_processed = True
                                 if 'leave_application_id' in st.session_state:
                                     del st.session_state.leave_application_id
@@ -1694,87 +1843,72 @@ def leave_approvals():
                                 conn.rollback()
                     
                     with col3:
-                        if st.button("❌ Reject", key=f"reject_{app_id}", use_container_width=True):
+                        if st.button("✅ Approve", key=f"approve_{app_id}", use_container_width=True, type="primary"):
                             try:
                                 if is_cloud:
                                     cursor.execute("""
                                         UPDATE leave_applications 
-                                        SET status = 'REJECTED'
+                                        SET status = 'APPROVED', approved_at = CURRENT_TIMESTAMP
                                         WHERE id = %s
                                     """, (app_id,))
                                 else:
                                     cursor.execute("""
                                         UPDATE leave_applications 
-                                        SET status = 'REJECTED'
+                                        SET status = 'APPROVED', approved_at = CURRENT_TIMESTAMP
                                         WHERE id = ?
                                     """, (app_id,))
                                 
-                                # Return days to balance
+                                # Update leave balance
                                 try:
                                     current_year = datetime.now().year
                                     if is_cloud:
                                         cursor.execute("""
                                             UPDATE leave_balances 
                                             SET pending_days = pending_days - %s,
-                                                remaining_days = remaining_days + %s
+                                                approved_days = approved_days + %s,
+                                                taken_days = taken_days + %s
                                             WHERE staff_id = %s AND leave_type_id = %s AND year = %s
-                                        """, (days, days, staff_id, leave_type_id, current_year))
+                                        """, (days, days, days, staff_id, leave_type_id, current_year))
                                     else:
                                         cursor.execute("""
                                             UPDATE leave_balances 
                                             SET pending_days = pending_days - ?,
-                                                remaining_days = remaining_days + ?
+                                                approved_days = approved_days + ?,
+                                                taken_days = taken_days + ?
                                             WHERE staff_id = ? AND leave_type_id = ? AND year = ?
-                                        """, (days, days, staff_id, leave_type_id, current_year))
+                                        """, (days, days, days, staff_id, leave_type_id, current_year))
                                 except:
                                     pass
-                                
-                                # Add reject comment if provided
-                                if comment and comment.strip():
-                                    try:
-                                        if is_cloud:
-                                            cursor.execute("""
-                                                INSERT INTO leave_approvals (
-                                                    application_id, approver_id, approver_role, status, comment, level
-                                                ) VALUES (%s, %s, %s, %s, %s, %s)
-                                            """, (app_id, 1, 'SUPERVISOR', 'REJECTED', comment, 1))
-                                        else:
-                                            cursor.execute("""
-                                                INSERT INTO leave_approvals (
-                                                    application_id, approver_id, approver_role, status, comment, level
-                                                ) VALUES (?, ?, ?, ?, ?, ?)
-                                            """, (app_id, 1, 'SUPERVISOR', 'REJECTED', comment, 1))
-                                    except:
-                                        pass
                                 
                                 conn.commit()
                                 
                                 log_audit(
                                     st.session_state.user.get('username', 'system'), 
-                                    "LEAVE_REJECT", 
+                                    "LEAVE_APPROVE", 
                                     app_id, 
-                                    f"Leave application {ref} rejected"
+                                    f"Leave application {ref} approved"
                                 )
                                 
-                                st.success(f"✅ Application {ref} rejected!")
-                                
+                                st.success(f"✅ Application {ref} approved successfully!")
                                 st.session_state.leave_application_processed = True
                                 if 'leave_application_id' in st.session_state:
                                     del st.session_state.leave_application_id
                                 st.rerun()
                                 
                             except Exception as e:
-                                st.error(f"Error rejecting: {e}")
+                                st.error(f"Error approving: {e}")
                                 conn.rollback()
                     
-                    # Close button
-                    if st.button("❌ Close", key=f"close_{app_id}", use_container_width=True):
-                        if 'leave_application_id' in st.session_state:
-                            del st.session_state.leave_application_id
-                        st.rerun()
+                    with col4:
+                        if st.button("❌ Close", key=f"close_{app_id}", use_container_width=True):
+                            if 'leave_application_id' in st.session_state:
+                                del st.session_state.leave_application_id
+                            st.rerun()
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
                 
                 else:
-                    # Show compact view with Review button
+                    # Compact view with Review button
                     col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 1.5, 1])
                     
                     with col1:
