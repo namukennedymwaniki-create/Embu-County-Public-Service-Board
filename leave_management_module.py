@@ -1408,6 +1408,14 @@ def leave_approvals():
     is_cloud = st.secrets.get("DATABASE_URL") is not None
     cursor = conn.cursor()
     
+    # Clear the selected application ID if it was processed
+    if 'leave_application_processed' in st.session_state:
+        if st.session_state.leave_application_processed:
+            if 'leave_application_id' in st.session_state:
+                del st.session_state.leave_application_id
+            del st.session_state.leave_application_processed
+            st.rerun()
+    
     try:
         # Updated query to use employees table with staff_no as TEXT
         if is_cloud:
@@ -1425,7 +1433,8 @@ def leave_approvals():
                     la.reason,
                     la.status, 
                     la.submitted_at,
-                    la.staff_id
+                    la.staff_id,
+                    la.leave_type_id
                 FROM leave_applications la
                 JOIN employees e ON la.staff_id = e.staff_no
                 JOIN leave_types lt ON la.leave_type_id = lt.id
@@ -1447,7 +1456,8 @@ def leave_approvals():
                     la.reason,
                     la.status, 
                     la.submitted_at,
-                    la.staff_id
+                    la.staff_id,
+                    la.leave_type_id
                 FROM leave_applications la
                 JOIN employees e ON la.staff_id = e.staff_no
                 JOIN leave_types lt ON la.leave_type_id = lt.id
@@ -1459,57 +1469,69 @@ def leave_approvals():
         
         if not pending_applications:
             st.info("✅ No pending leave applications")
+            # Clear any selected application
+            if 'leave_application_id' in st.session_state:
+                del st.session_state.leave_application_id
             conn.close()
             return
         
         st.info(f"📊 {len(pending_applications)} pending application(s)")
         
+        # Add a refresh button
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            if st.button("🔄 Refresh List", use_container_width=True):
+                if 'leave_application_id' in st.session_state:
+                    del st.session_state.leave_application_id
+                st.rerun()
+        
+        st.markdown("---")
+        
         for app in pending_applications:
-            app_id, ref, name, department, leave_type, start_date, end_date, days, resumption, reason, status, submitted, staff_id = app
+            app_id, ref, name, department, leave_type, start_date, end_date, days, resumption, reason, status, submitted, staff_id, leave_type_id = app
+            
+            # Check if this is the selected application for review
+            is_selected = st.session_state.get('leave_application_id') == app_id
             
             with st.container():
-                col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 1.5, 1])
+                # Collapsible header
+                expander_label = f"📋 {ref} - {name} ({leave_type}) - {days} days"
                 
-                with col1:
-                    st.write(f"**{name}**")
-                    st.caption(f"Staff No: {staff_id}")
-                    st.caption(ref)
-                with col2:
-                    st.write(department or "N/A")
-                    st.caption(leave_type)
-                with col3:
-                    st.write(f"{start_date} → {end_date}")
-                    st.caption(f"{days} days")
-                with col4:
-                    st.write(f"Returns: {resumption}")
-                    st.caption(f"Submitted: {submitted}")
-                with col5:
-                    if st.button(f"📋 Review", key=f"review_{app_id}"):
-                        st.session_state.leave_application_id = app_id
-                        st.rerun()
-                
-                if st.session_state.get('leave_application_id') == app_id:
-                    st.markdown("---")
-                    st.subheader(f"📝 Leave Application: {ref}")
+                if is_selected:
+                    # Show expanded view
+                    st.markdown(f"### {expander_label}")
                     
-                    col1, col2 = st.columns(2)
+                    # Display details in columns
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.markdown("**Employee Details**")
-                        st.write(f"Name: {name}")
-                        st.write(f"Staff No: {staff_id}")
-                        st.write(f"Department: {department or 'N/A'}")
-                        st.write(f"Leave Type: {leave_type}")
-                        st.markdown("**Leave Details**")
-                        st.write(f"From: {start_date}")
-                        st.write(f"To: {end_date}")
-                        st.write(f"Days: {days}")
-                        st.write(f"Resumption: {resumption}")
+                        st.metric("Employee", name)
+                        st.caption(f"Staff No: {staff_id}")
                     with col2:
-                        st.markdown("**Reason**")
-                        st.write(reason or "No reason provided")
+                        st.metric("Department", department or "N/A")
+                        st.caption(f"Leave Type: {leave_type}")
+                    with col3:
+                        st.metric("Period", f"{start_date} → {end_date}")
+                        st.caption(f"{days} days")
+                    with col4:
+                        st.metric("Resumption", resumption)
+                        st.caption(f"Submitted: {submitted}")
                     
+                    st.markdown("---")
+                    
+                    # Reason
+                    st.markdown("**Reason**")
+                    st.info(reason or "No reason provided")
+                    
+                    st.markdown("---")
+                    
+                    # Approval Actions
                     st.markdown("### ✅ Approval Actions")
-                    comment = st.text_area("Comment", placeholder="Add your comments...", key=f"comment_{app_id}")
+                    comment = st.text_area(
+                        "Comment (optional)", 
+                        placeholder="Add your comments...", 
+                        key=f"comment_{app_id}",
+                        height=80
+                    )
                     
                     col1, col2, col3 = st.columns(3)
                     with col1:
@@ -1531,6 +1553,7 @@ def leave_approvals():
                                 
                                 # Update leave balance
                                 try:
+                                    current_year = datetime.now().year
                                     if is_cloud:
                                         cursor.execute("""
                                             UPDATE leave_balances 
@@ -1538,7 +1561,7 @@ def leave_approvals():
                                                 approved_days = approved_days + %s,
                                                 taken_days = taken_days + %s
                                             WHERE staff_id = %s AND leave_type_id = %s AND year = %s
-                                        """, (days, days, days, staff_id, app[2], datetime.now().year))
+                                        """, (days, days, days, staff_id, leave_type_id, current_year))
                                     else:
                                         cursor.execute("""
                                             UPDATE leave_balances 
@@ -1546,8 +1569,9 @@ def leave_approvals():
                                                 approved_days = approved_days + ?,
                                                 taken_days = taken_days + ?
                                             WHERE staff_id = ? AND leave_type_id = ? AND year = ?
-                                        """, (days, days, days, staff_id, app[2], datetime.now().year))
-                                except:
+                                        """, (days, days, days, staff_id, leave_type_id, current_year))
+                                except Exception as balance_error:
+                                    # Balance table might not exist or have different structure
                                     pass
                                 
                                 conn.commit()
@@ -1559,9 +1583,14 @@ def leave_approvals():
                                     f"Leave application {ref} approved"
                                 )
                                 
-                                st.success("✅ Application approved!")
-                                del st.session_state.leave_application_id
+                                st.success(f"✅ Application {ref} approved successfully!")
+                                
+                                # Mark as processed and refresh
+                                st.session_state.leave_application_processed = True
+                                if 'leave_application_id' in st.session_state:
+                                    del st.session_state.leave_application_id
                                 st.rerun()
+                                
                             except Exception as e:
                                 st.error(f"Error approving: {e}")
                                 conn.rollback()
@@ -1584,20 +1613,21 @@ def leave_approvals():
                                 
                                 # Return days to balance
                                 try:
+                                    current_year = datetime.now().year
                                     if is_cloud:
                                         cursor.execute("""
                                             UPDATE leave_balances 
                                             SET pending_days = pending_days - %s,
                                                 remaining_days = remaining_days + %s
                                             WHERE staff_id = %s AND leave_type_id = %s AND year = %s
-                                        """, (days, days, staff_id, app[2], datetime.now().year))
+                                        """, (days, days, staff_id, leave_type_id, current_year))
                                     else:
                                         cursor.execute("""
                                             UPDATE leave_balances 
                                             SET pending_days = pending_days - ?,
                                                 remaining_days = remaining_days + ?
                                             WHERE staff_id = ? AND leave_type_id = ? AND year = ?
-                                        """, (days, days, staff_id, app[2], datetime.now().year))
+                                        """, (days, days, staff_id, leave_type_id, current_year))
                                 except:
                                     pass
                                 
@@ -1610,9 +1640,13 @@ def leave_approvals():
                                     f"Leave application {ref} returned"
                                 )
                                 
-                                st.success("✅ Application returned for revision!")
-                                del st.session_state.leave_application_id
+                                st.success(f"✅ Application {ref} returned for revision!")
+                                
+                                st.session_state.leave_application_processed = True
+                                if 'leave_application_id' in st.session_state:
+                                    del st.session_state.leave_application_id
                                 st.rerun()
+                                
                             except Exception as e:
                                 st.error(f"Error returning: {e}")
                                 conn.rollback()
@@ -1635,20 +1669,21 @@ def leave_approvals():
                                 
                                 # Return days to balance
                                 try:
+                                    current_year = datetime.now().year
                                     if is_cloud:
                                         cursor.execute("""
                                             UPDATE leave_balances 
                                             SET pending_days = pending_days - %s,
                                                 remaining_days = remaining_days + %s
                                             WHERE staff_id = %s AND leave_type_id = %s AND year = %s
-                                        """, (days, days, staff_id, app[2], datetime.now().year))
+                                        """, (days, days, staff_id, leave_type_id, current_year))
                                     else:
                                         cursor.execute("""
                                             UPDATE leave_balances 
                                             SET pending_days = pending_days - ?,
                                                 remaining_days = remaining_days + ?
                                             WHERE staff_id = ? AND leave_type_id = ? AND year = ?
-                                        """, (days, days, staff_id, app[2], datetime.now().year))
+                                        """, (days, days, staff_id, leave_type_id, current_year))
                                 except:
                                     pass
                                 
@@ -1661,14 +1696,46 @@ def leave_approvals():
                                     f"Leave application {ref} rejected"
                                 )
                                 
-                                st.success("✅ Application rejected!")
-                                del st.session_state.leave_application_id
+                                st.success(f"✅ Application {ref} rejected!")
+                                
+                                st.session_state.leave_application_processed = True
+                                if 'leave_application_id' in st.session_state:
+                                    del st.session_state.leave_application_id
                                 st.rerun()
+                                
                             except Exception as e:
                                 st.error(f"Error rejecting: {e}")
                                 conn.rollback()
+                    
+                    # Close button
+                    if st.button("❌ Close", key=f"close_{app_id}", use_container_width=True):
+                        if 'leave_application_id' in st.session_state:
+                            del st.session_state.leave_application_id
+                        st.rerun()
                 
-                st.divider()
+                else:
+                    # Show compact view with Review button
+                    col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 1.5, 1])
+                    
+                    with col1:
+                        st.write(f"**{name}**")
+                        st.caption(f"Staff No: {staff_id}")
+                        st.caption(ref)
+                    with col2:
+                        st.write(department or "N/A")
+                        st.caption(leave_type)
+                    with col3:
+                        st.write(f"{start_date} → {end_date}")
+                        st.caption(f"{days} days")
+                    with col4:
+                        st.write(f"Returns: {resumption}")
+                        st.caption(f"Submitted: {submitted}")
+                    with col5:
+                        if st.button(f"📋 Review", key=f"review_{app_id}", use_container_width=True):
+                            st.session_state.leave_application_id = app_id
+                            st.rerun()
+                    
+                    st.divider()
     
     except Exception as e:
         st.error(f"Error loading approvals: {e}")
