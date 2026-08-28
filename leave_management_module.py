@@ -1409,26 +1409,47 @@ def leave_approvals():
     cursor = conn.cursor()
     
     try:
+        # Updated query to use employees table with staff_no as TEXT
         if is_cloud:
             cursor.execute("""
-                SELECT la.id, la.application_ref, s.name, s.department, 
-                       lt.name as leave_type, la.start_date, la.end_date, 
-                       la.number_of_days, la.resumption_date, la.reason,
-                       la.status, la.submitted_at
+                SELECT 
+                    la.id, 
+                    la.application_ref, 
+                    e.name, 
+                    e.department, 
+                    lt.name as leave_type, 
+                    la.start_date, 
+                    la.end_date, 
+                    la.number_of_days, 
+                    la.resumption_date, 
+                    la.reason,
+                    la.status, 
+                    la.submitted_at,
+                    la.staff_id
                 FROM leave_applications la
-                JOIN staff s ON la.staff_id = s.id
+                JOIN employees e ON la.staff_id = e.staff_no
                 JOIN leave_types lt ON la.leave_type_id = lt.id
                 WHERE la.status = 'PENDING'
                 ORDER BY la.submitted_at ASC
             """)
         else:
             cursor.execute("""
-                SELECT la.id, la.application_ref, s.name, s.department, 
-                       lt.name as leave_type, la.start_date, la.end_date, 
-                       la.number_of_days, la.resumption_date, la.reason,
-                       la.status, la.submitted_at
+                SELECT 
+                    la.id, 
+                    la.application_ref, 
+                    e.name, 
+                    e.department, 
+                    lt.name as leave_type, 
+                    la.start_date, 
+                    la.end_date, 
+                    la.number_of_days, 
+                    la.resumption_date, 
+                    la.reason,
+                    la.status, 
+                    la.submitted_at,
+                    la.staff_id
                 FROM leave_applications la
-                JOIN staff s ON la.staff_id = s.id
+                JOIN employees e ON la.staff_id = e.staff_no
                 JOIN leave_types lt ON la.leave_type_id = lt.id
                 WHERE la.status = 'PENDING'
                 ORDER BY la.submitted_at ASC
@@ -1444,13 +1465,14 @@ def leave_approvals():
         st.info(f"📊 {len(pending_applications)} pending application(s)")
         
         for app in pending_applications:
-            app_id, ref, name, department, leave_type, start_date, end_date, days, resumption, reason, status, submitted = app
+            app_id, ref, name, department, leave_type, start_date, end_date, days, resumption, reason, status, submitted, staff_id = app
             
             with st.container():
                 col1, col2, col3, col4, col5 = st.columns([2, 1.5, 1.5, 1.5, 1])
                 
                 with col1:
                     st.write(f"**{name}**")
+                    st.caption(f"Staff No: {staff_id}")
                     st.caption(ref)
                 with col2:
                     st.write(department or "N/A")
@@ -1474,6 +1496,7 @@ def leave_approvals():
                     with col1:
                         st.markdown("**Employee Details**")
                         st.write(f"Name: {name}")
+                        st.write(f"Staff No: {staff_id}")
                         st.write(f"Department: {department or 'N/A'}")
                         st.write(f"Leave Type: {leave_type}")
                         st.markdown("**Leave Details**")
@@ -1491,28 +1514,159 @@ def leave_approvals():
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         if st.button("✅ Approve", key=f"approve_{app_id}", use_container_width=True, type="primary"):
-                            workflow_service = LeaveWorkflowService()
-                            workflow_service.process_approval(app_id, 1, 'approve', comment or "Approved")
-                            log_audit(st.session_state.user.get('username', 'system'), "LEAVE_APPROVE", app_id, f"Leave application {ref} approved")
-                            st.success("✅ Application approved!")
-                            del st.session_state.leave_application_id
-                            st.rerun()
+                            try:
+                                # Update approval status
+                                if is_cloud:
+                                    cursor.execute("""
+                                        UPDATE leave_applications 
+                                        SET status = 'APPROVED', approved_at = CURRENT_TIMESTAMP
+                                        WHERE id = %s
+                                    """, (app_id,))
+                                else:
+                                    cursor.execute("""
+                                        UPDATE leave_applications 
+                                        SET status = 'APPROVED', approved_at = CURRENT_TIMESTAMP
+                                        WHERE id = ?
+                                    """, (app_id,))
+                                
+                                # Update leave balance
+                                try:
+                                    if is_cloud:
+                                        cursor.execute("""
+                                            UPDATE leave_balances 
+                                            SET pending_days = pending_days - %s,
+                                                approved_days = approved_days + %s,
+                                                taken_days = taken_days + %s
+                                            WHERE staff_id = %s AND leave_type_id = %s AND year = %s
+                                        """, (days, days, days, staff_id, app[2], datetime.now().year))
+                                    else:
+                                        cursor.execute("""
+                                            UPDATE leave_balances 
+                                            SET pending_days = pending_days - ?,
+                                                approved_days = approved_days + ?,
+                                                taken_days = taken_days + ?
+                                            WHERE staff_id = ? AND leave_type_id = ? AND year = ?
+                                        """, (days, days, days, staff_id, app[2], datetime.now().year))
+                                except:
+                                    pass
+                                
+                                conn.commit()
+                                
+                                log_audit(
+                                    st.session_state.user.get('username', 'system'), 
+                                    "LEAVE_APPROVE", 
+                                    app_id, 
+                                    f"Leave application {ref} approved"
+                                )
+                                
+                                st.success("✅ Application approved!")
+                                del st.session_state.leave_application_id
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error approving: {e}")
+                                conn.rollback()
+                    
                     with col2:
                         if st.button("↩️ Return", key=f"return_{app_id}", use_container_width=True):
-                            workflow_service = LeaveWorkflowService()
-                            workflow_service.process_approval(app_id, 1, 'return', comment or "Returned for revision")
-                            log_audit(st.session_state.user.get('username', 'system'), "LEAVE_RETURN", app_id, f"Leave application {ref} returned")
-                            st.success("✅ Application returned!")
-                            del st.session_state.leave_application_id
-                            st.rerun()
+                            try:
+                                if is_cloud:
+                                    cursor.execute("""
+                                        UPDATE leave_applications 
+                                        SET status = 'RETURNED'
+                                        WHERE id = %s
+                                    """, (app_id,))
+                                else:
+                                    cursor.execute("""
+                                        UPDATE leave_applications 
+                                        SET status = 'RETURNED'
+                                        WHERE id = ?
+                                    """, (app_id,))
+                                
+                                # Return days to balance
+                                try:
+                                    if is_cloud:
+                                        cursor.execute("""
+                                            UPDATE leave_balances 
+                                            SET pending_days = pending_days - %s,
+                                                remaining_days = remaining_days + %s
+                                            WHERE staff_id = %s AND leave_type_id = %s AND year = %s
+                                        """, (days, days, staff_id, app[2], datetime.now().year))
+                                    else:
+                                        cursor.execute("""
+                                            UPDATE leave_balances 
+                                            SET pending_days = pending_days - ?,
+                                                remaining_days = remaining_days + ?
+                                            WHERE staff_id = ? AND leave_type_id = ? AND year = ?
+                                        """, (days, days, staff_id, app[2], datetime.now().year))
+                                except:
+                                    pass
+                                
+                                conn.commit()
+                                
+                                log_audit(
+                                    st.session_state.user.get('username', 'system'), 
+                                    "LEAVE_RETURN", 
+                                    app_id, 
+                                    f"Leave application {ref} returned"
+                                )
+                                
+                                st.success("✅ Application returned for revision!")
+                                del st.session_state.leave_application_id
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error returning: {e}")
+                                conn.rollback()
+                    
                     with col3:
                         if st.button("❌ Reject", key=f"reject_{app_id}", use_container_width=True):
-                            workflow_service = LeaveWorkflowService()
-                            workflow_service.process_approval(app_id, 1, 'reject', comment or "Rejected")
-                            log_audit(st.session_state.user.get('username', 'system'), "LEAVE_REJECT", app_id, f"Leave application {ref} rejected")
-                            st.success("✅ Application rejected!")
-                            del st.session_state.leave_application_id
-                            st.rerun()
+                            try:
+                                if is_cloud:
+                                    cursor.execute("""
+                                        UPDATE leave_applications 
+                                        SET status = 'REJECTED'
+                                        WHERE id = %s
+                                    """, (app_id,))
+                                else:
+                                    cursor.execute("""
+                                        UPDATE leave_applications 
+                                        SET status = 'REJECTED'
+                                        WHERE id = ?
+                                    """, (app_id,))
+                                
+                                # Return days to balance
+                                try:
+                                    if is_cloud:
+                                        cursor.execute("""
+                                            UPDATE leave_balances 
+                                            SET pending_days = pending_days - %s,
+                                                remaining_days = remaining_days + %s
+                                            WHERE staff_id = %s AND leave_type_id = %s AND year = %s
+                                        """, (days, days, staff_id, app[2], datetime.now().year))
+                                    else:
+                                        cursor.execute("""
+                                            UPDATE leave_balances 
+                                            SET pending_days = pending_days - ?,
+                                                remaining_days = remaining_days + ?
+                                            WHERE staff_id = ? AND leave_type_id = ? AND year = ?
+                                        """, (days, days, staff_id, app[2], datetime.now().year))
+                                except:
+                                    pass
+                                
+                                conn.commit()
+                                
+                                log_audit(
+                                    st.session_state.user.get('username', 'system'), 
+                                    "LEAVE_REJECT", 
+                                    app_id, 
+                                    f"Leave application {ref} rejected"
+                                )
+                                
+                                st.success("✅ Application rejected!")
+                                del st.session_state.leave_application_id
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error rejecting: {e}")
+                                conn.rollback()
                 
                 st.divider()
     
@@ -1520,7 +1674,6 @@ def leave_approvals():
         st.error(f"Error loading approvals: {e}")
     finally:
         conn.close()
-
 
 def leave_calendar():
     """Leave Calendar View"""
@@ -1734,12 +1887,12 @@ def leave_roster():
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            search_term = st.text_input("Search Employee", placeholder="Name or ID...")
+            search_term = st.text_input("Search Employee", placeholder="Name or Staff No...")
         with col2:
             if is_cloud:
-                cursor.execute("SELECT DISTINCT department FROM staff WHERE department IS NOT NULL ORDER BY department")
+                cursor.execute("SELECT DISTINCT department FROM employees WHERE department IS NOT NULL ORDER BY department")
             else:
-                cursor.execute("SELECT DISTINCT department FROM staff WHERE department IS NOT NULL ORDER BY department")
+                cursor.execute("SELECT DISTINCT department FROM employees WHERE department IS NOT NULL ORDER BY department")
             
             departments = [row[0] for row in cursor.fetchall()]
             selected_department = st.selectbox("Department", ["All"] + departments)
@@ -1758,11 +1911,11 @@ def leave_roster():
         week_end = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
         
         query = """
-            SELECT s.id, s.name, s.department, lt.name as leave_type, 
+            SELECT e.staff_no, e.name, e.department, lt.name as leave_type, 
                    la.start_date, la.end_date, la.number_of_days, la.resumption_date,
-                   s.contact
+                   e.personal_no
             FROM leave_applications la
-            JOIN staff s ON la.staff_id = s.id
+            JOIN employees e ON la.staff_id = e.staff_no
             JOIN leave_types lt ON la.leave_type_id = lt.id
             WHERE la.status = 'APPROVED'
         """
@@ -1773,14 +1926,14 @@ def leave_roster():
             query += f" AND la.resumption_date BETWEEN '{today}' AND '{week_end}'"
         
         if selected_department != "All":
-            query += f" AND s.department = '{selected_department}'"
+            query += f" AND e.department = '{selected_department}'"
         if selected_leave_type != "All":
             query += f" AND lt.name = '{selected_leave_type}'"
         if search_term:
             if is_cloud:
-                query += f" AND (s.name ILIKE '%{search_term}%' OR s.id_number LIKE '%{search_term}%')"
+                query += f" AND (e.name ILIKE '%{search_term}%' OR e.staff_no LIKE '%{search_term}%')"
             else:
-                query += f" AND (s.name LIKE '%{search_term}%' OR s.id_number LIKE '%{search_term}%')"
+                query += f" AND (e.name LIKE '%{search_term}%' OR e.staff_no LIKE '%{search_term}%')"
         
         query += " ORDER BY la.resumption_date ASC"
         
@@ -1800,21 +1953,21 @@ def leave_roster():
         
         roster_list = []
         for row in roster_data:
-            staff_id, name, department, leave_type, start_date, end_date, days, resumption, contact = row
+            staff_no, name, department, leave_type, start_date, end_date, days, resumption, personal_no = row
             
             today_dt = datetime.now().date()
             resumption_dt = resumption if isinstance(resumption, date) else datetime.strptime(str(resumption), "%Y-%m-%d").date()
             days_until_return = (resumption_dt - today_dt).days
             
             roster_list.append({
+                'Staff No': staff_no,
                 'Employee': name,
                 'Department': department or 'N/A',
                 'Leave Type': leave_type,
                 'Period': f"{start_date} - {end_date}",
                 'Days': days,
                 'Return Date': resumption,
-                'Days Until Return': days_until_return,
-                'Contact': contact or 'N/A'
+                'Days Until Return': days_until_return
             })
         
         roster_df = pd.DataFrame(roster_list)
