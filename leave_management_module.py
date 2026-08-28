@@ -1488,7 +1488,13 @@ def leave_approvals():
         st.markdown("---")
         
         for app in pending_applications:
-            app_id, ref, name, department, leave_type, start_date, end_date, days, resumption, reason, status, submitted, staff_id, leave_type_id = app
+            app_id, ref, name, department, leave_type, start_date, end_date, days, resumption_date, reason, status, submitted, staff_id, leave_type_id = app
+            
+            # Convert dates to strings for display
+            start_date_str = str(start_date) if start_date else "N/A"
+            end_date_str = str(end_date) if end_date else "N/A"
+            resumption_str = str(resumption_date) if resumption_date else "N/A"
+            submitted_str = str(submitted) if submitted else "N/A"
             
             # Check if this is the selected application for review
             is_selected = st.session_state.get('leave_application_id') == app_id
@@ -1510,11 +1516,11 @@ def leave_approvals():
                         st.metric("Department", department or "N/A")
                         st.caption(f"Leave Type: {leave_type}")
                     with col3:
-                        st.metric("Period", f"{start_date} → {end_date}")
+                        st.metric("Period", f"{start_date_str} → {end_date_str}")
                         st.caption(f"{days} days")
                     with col4:
-                        st.metric("Resumption", resumption)
-                        st.caption(f"Submitted: {submitted}")
+                        st.metric("Resumption", resumption_str)
+                        st.caption(f"Submitted: {submitted_str}")
                     
                     st.markdown("---")
                     
@@ -1574,6 +1580,24 @@ def leave_approvals():
                                     # Balance table might not exist or have different structure
                                     pass
                                 
+                                # Add approval comment if provided
+                                if comment and comment.strip():
+                                    try:
+                                        if is_cloud:
+                                            cursor.execute("""
+                                                INSERT INTO leave_approvals (
+                                                    application_id, approver_id, approver_role, status, comment, level
+                                                ) VALUES (%s, %s, %s, %s, %s, %s)
+                                            """, (app_id, 1, 'SUPERVISOR', 'APPROVED', comment, 1))
+                                        else:
+                                            cursor.execute("""
+                                                INSERT INTO leave_approvals (
+                                                    application_id, approver_id, approver_role, status, comment, level
+                                                ) VALUES (?, ?, ?, ?, ?, ?)
+                                            """, (app_id, 1, 'SUPERVISOR', 'APPROVED', comment, 1))
+                                    except:
+                                        pass
+                                
                                 conn.commit()
                                 
                                 log_audit(
@@ -1631,6 +1655,24 @@ def leave_approvals():
                                 except:
                                     pass
                                 
+                                # Add return comment if provided
+                                if comment and comment.strip():
+                                    try:
+                                        if is_cloud:
+                                            cursor.execute("""
+                                                INSERT INTO leave_approvals (
+                                                    application_id, approver_id, approver_role, status, comment, level
+                                                ) VALUES (%s, %s, %s, %s, %s, %s)
+                                            """, (app_id, 1, 'SUPERVISOR', 'RETURNED', comment, 1))
+                                        else:
+                                            cursor.execute("""
+                                                INSERT INTO leave_approvals (
+                                                    application_id, approver_id, approver_role, status, comment, level
+                                                ) VALUES (?, ?, ?, ?, ?, ?)
+                                            """, (app_id, 1, 'SUPERVISOR', 'RETURNED', comment, 1))
+                                    except:
+                                        pass
+                                
                                 conn.commit()
                                 
                                 log_audit(
@@ -1687,6 +1729,24 @@ def leave_approvals():
                                 except:
                                     pass
                                 
+                                # Add reject comment if provided
+                                if comment and comment.strip():
+                                    try:
+                                        if is_cloud:
+                                            cursor.execute("""
+                                                INSERT INTO leave_approvals (
+                                                    application_id, approver_id, approver_role, status, comment, level
+                                                ) VALUES (%s, %s, %s, %s, %s, %s)
+                                            """, (app_id, 1, 'SUPERVISOR', 'REJECTED', comment, 1))
+                                        else:
+                                            cursor.execute("""
+                                                INSERT INTO leave_approvals (
+                                                    application_id, approver_id, approver_role, status, comment, level
+                                                ) VALUES (?, ?, ?, ?, ?, ?)
+                                            """, (app_id, 1, 'SUPERVISOR', 'REJECTED', comment, 1))
+                                    except:
+                                        pass
+                                
                                 conn.commit()
                                 
                                 log_audit(
@@ -1725,11 +1785,11 @@ def leave_approvals():
                         st.write(department or "N/A")
                         st.caption(leave_type)
                     with col3:
-                        st.write(f"{start_date} → {end_date}")
+                        st.write(f"{start_date_str} → {end_date_str}")
                         st.caption(f"{days} days")
                     with col4:
-                        st.write(f"Returns: {resumption}")
-                        st.caption(f"Submitted: {submitted}")
+                        st.write(f"Returns: {resumption_str}")
+                        st.caption(f"Submitted: {submitted_str}")
                     with col5:
                         if st.button(f"📋 Review", key=f"review_{app_id}", use_container_width=True):
                             st.session_state.leave_application_id = app_id
