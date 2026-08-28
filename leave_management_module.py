@@ -839,6 +839,413 @@ class LeaveWorkflowService:
 # =============================================================
 # LEAVE UI FUNCTIONS
 # =============================================================
+def leave_dashboard():
+    """Leave Management Dashboard"""
+    # Header with date
+    current_date = datetime.now().strftime("%d %B %Y")
+    st.markdown(f"""
+    <div class="main-header">
+        <h1 style="color: white; margin: 0;">🏖️ LEAVE MANAGEMENT</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <p style="color: rgba(255,255,255,0.8); margin-top: 0.5rem; margin-bottom: 0;">Dashboard</p>
+            <p style="color: rgba(255,255,255,0.8); margin-top: 0.5rem; margin-bottom: 0;">{current_date}</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    conn = get_conn()
+    if conn is None:
+        st.error("Database connection failed")
+        return
+    
+    is_cloud = st.secrets.get("DATABASE_URL") is not None
+    cursor = conn.cursor()
+    
+    try:
+        # Get total staff count from employees table
+        if is_cloud:
+            cursor.execute("SELECT COUNT(*) FROM employees WHERE staff_no IS NOT NULL")
+        else:
+            cursor.execute("SELECT COUNT(*) FROM employees WHERE staff_no IS NOT NULL")
+        total_staff = cursor.fetchone()[0] or 0
+        
+        # Get staff on leave today
+        today = datetime.now().strftime("%Y-%m-%d")
+        if is_cloud:
+            cursor.execute("""
+                SELECT COUNT(DISTINCT staff_id) FROM leave_applications 
+                WHERE status = 'APPROVED' AND start_date <= %s AND end_date >= %s
+            """, (today, today))
+        else:
+            cursor.execute("""
+                SELECT COUNT(DISTINCT staff_id) FROM leave_applications 
+                WHERE status = 'APPROVED' AND start_date <= ? AND end_date >= ?
+            """, (today, today))
+        on_leave_today = cursor.fetchone()[0] or 0
+        
+        # Get pending applications
+        if is_cloud:
+            cursor.execute("SELECT COUNT(*) FROM leave_applications WHERE status = 'PENDING'")
+        else:
+            cursor.execute("SELECT COUNT(*) FROM leave_applications WHERE status = 'PENDING'")
+        pending_applications = cursor.fetchone()[0] or 0
+        
+        # Get returning this week
+        week_end = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+        if is_cloud:
+            cursor.execute("""
+                SELECT COUNT(DISTINCT staff_id) FROM leave_applications 
+                WHERE status = 'APPROVED' AND resumption_date BETWEEN %s AND %s
+            """, (today, week_end))
+        else:
+            cursor.execute("""
+                SELECT COUNT(DISTINCT staff_id) FROM leave_applications 
+                WHERE status = 'APPROVED' AND resumption_date BETWEEN ? AND ?
+            """, (today, week_end))
+        returning_this_week = cursor.fetchone()[0] or 0
+        
+        # Display KPI cards in a professional layout
+        st.markdown("""
+        <div style="
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin: 20px 0;
+        ">
+        """, unsafe_allow_html=True)
+        
+        # Card 1: Total Staff
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        ">
+            <div style="font-size: 14px; opacity: 0.9;">Total Staff</div>
+            <div style="font-size: 32px; font-weight: bold;">{total_staff:,}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Card 2: On Leave Today
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        ">
+            <div style="font-size: 14px; opacity: 0.9;">On Leave Today</div>
+            <div style="font-size: 32px; font-weight: bold;">{on_leave_today}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Card 3: Pending Applications
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        ">
+            <div style="font-size: 14px; opacity: 0.9;">Pending Applications</div>
+            <div style="font-size: 32px; font-weight: bold;">{pending_applications}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Card 4: Returning This Week
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        ">
+            <div style="font-size: 14px; opacity: 0.9;">Returning This Week</div>
+            <div style="font-size: 32px; font-weight: bold;">{returning_this_week}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # =============================================
+        # LEAVE UTILIZATION
+        # =============================================
+        st.subheader("📊 Leave Utilization")
+        
+        if is_cloud:
+            cursor.execute("""
+                SELECT lt.name, lt.color,
+                       COALESCE(SUM(lb.taken_days), 0) as taken,
+                       COALESCE(SUM(lb.entitled_days), 0) as entitled
+                FROM leave_types lt
+                LEFT JOIN leave_balances lb ON lt.id = lb.leave_type_id
+                WHERE lt.is_active = TRUE
+                GROUP BY lt.id, lt.name, lt.color
+                ORDER BY lt.sort_order
+                LIMIT 6
+            """)
+        else:
+            cursor.execute("""
+                SELECT lt.name, lt.color,
+                       COALESCE(SUM(lb.taken_days), 0) as taken,
+                       COALESCE(SUM(lb.entitled_days), 0) as entitled
+                FROM leave_types lt
+                LEFT JOIN leave_balances lb ON lt.id = lb.leave_type_id
+                WHERE lt.is_active = 1
+                GROUP BY lt.id, lt.name, lt.color
+                ORDER BY lt.sort_order
+                LIMIT 6
+            """)
+        
+        utilization_data = cursor.fetchall()
+        
+        if utilization_data:
+            # Create styled progress bars
+            for name, color, taken, entitled in utilization_data:
+                percentage = (taken / entitled * 100) if entitled > 0 else 0
+                bar_color = '#10b981' if percentage < 50 else '#f59e0b' if percentage < 75 else '#ef4444'
+                
+                st.markdown(f"""
+                <div style="margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; color: #cbd5e1; margin-bottom: 4px;">
+                        <span><strong>{name}</strong></span>
+                        <span>{taken:.0f} / {entitled:.0f} days ({percentage:.0f}%)</span>
+                    </div>
+                    <div style="background: #1e293b; border-radius: 8px; height: 24px; overflow: hidden; position: relative;">
+                        <div style="
+                            background: {bar_color}; 
+                            width: {min(percentage, 100)}%; 
+                            height: 100%; 
+                            border-radius: 8px;
+                            transition: width 0.5s ease;
+                        "></div>
+                        <div style="
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            color: white;
+                            font-size: 12px;
+                            font-weight: bold;
+                            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+                        ">{min(percentage, 100):.0f}%</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # =============================================
+        # PENDING LEAVE APPLICATIONS
+        # =============================================
+        st.subheader("📋 Pending Leave Applications")
+        
+        if is_cloud:
+            cursor.execute("""
+                SELECT la.id, e.name, e.department, lt.name as leave_type, 
+                       la.start_date, la.end_date, la.status
+                FROM leave_applications la
+                JOIN employees e ON la.staff_id = e.staff_no
+                JOIN leave_types lt ON la.leave_type_id = lt.id
+                WHERE la.status = 'PENDING'
+                ORDER BY la.submitted_at ASC
+                LIMIT 5
+            """)
+        else:
+            cursor.execute("""
+                SELECT la.id, e.name, e.department, lt.name as leave_type, 
+                       la.start_date, la.end_date, la.status
+                FROM leave_applications la
+                JOIN employees e ON la.staff_id = e.staff_no
+                JOIN leave_types lt ON la.leave_type_id = lt.id
+                WHERE la.status = 'PENDING'
+                ORDER BY la.submitted_at ASC
+                LIMIT 5
+            """)
+        
+        pending_data = cursor.fetchall()
+        
+        if pending_data:
+            # Create a styled table
+            st.markdown("""
+            <div style="
+                background: #1e293b;
+                border-radius: 12px;
+                overflow: hidden;
+                margin: 10px 0;
+            ">
+                <div style="
+                    display: grid;
+                    grid-template-columns: 2fr 1.5fr 1.5fr 1.5fr 1fr;
+                    background: #0f172a;
+                    padding: 12px 16px;
+                    color: #94a3b8;
+                    font-weight: bold;
+                    font-size: 14px;
+                ">
+                    <div>Employee</div>
+                    <div>Department</div>
+                    <div>Type</div>
+                    <div>Period</div>
+                    <div>Action</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            for app_id, name, department, leave_type, start_date, end_date, status in pending_data:
+                start_str = start_date.strftime("%d/%m") if start_date else "N/A"
+                end_str = end_date.strftime("%d/%m") if end_date else "N/A"
+                
+                st.markdown(f"""
+                <div style="
+                    display: grid;
+                    grid-template-columns: 2fr 1.5fr 1.5fr 1.5fr 1fr;
+                    padding: 12px 16px;
+                    border-bottom: 1px solid #334155;
+                    color: #e2e8f0;
+                    align-items: center;
+                ">
+                    <div><strong>{name}</strong></div>
+                    <div>{department or 'N/A'}</div>
+                    <div>{leave_type}</div>
+                    <div>{start_str} → {end_str}</div>
+                    <div>
+                        <button onclick="location.href='?review={app_id}'" style="
+                            background: #4A90D9;
+                            color: white;
+                            border: none;
+                            padding: 4px 12px;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 12px;
+                        ">Review</button>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            # Streamlit buttons for Review actions
+            for app_id, name, department, leave_type, start_date, end_date, status in pending_data:
+                if st.button(f"📋 Review {name}", key=f"dash_review_{app_id}"):
+                    st.session_state.leave_application_id = app_id
+                    st.session_state.leave_page = "Leave Approvals"
+                    st.rerun()
+        else:
+            st.info("✅ No pending leave applications")
+        
+        st.markdown("---")
+        
+        # =============================================
+        # STAFF CURRENTLY ON LEAVE
+        # =============================================
+        st.subheader("👥 Staff Currently on Leave")
+        
+        if is_cloud:
+            cursor.execute("""
+                SELECT e.name, e.department, lt.name as leave_type, la.resumption_date
+                FROM leave_applications la
+                JOIN employees e ON la.staff_id = e.staff_no
+                JOIN leave_types lt ON la.leave_type_id = lt.id
+                WHERE la.status = 'APPROVED' 
+                AND la.start_date <= %s AND la.end_date >= %s
+                ORDER BY la.resumption_date ASC
+                LIMIT 5
+            """, (today, today))
+        else:
+            cursor.execute("""
+                SELECT e.name, e.department, lt.name as leave_type, la.resumption_date
+                FROM leave_applications la
+                JOIN employees e ON la.staff_id = e.staff_no
+                JOIN leave_types lt ON la.leave_type_id = lt.id
+                WHERE la.status = 'APPROVED' 
+                AND la.start_date <= ? AND la.end_date >= ?
+                ORDER BY la.resumption_date ASC
+                LIMIT 5
+            """, (today, today))
+        
+        on_leave_data = cursor.fetchall()
+        
+        if on_leave_data:
+            st.markdown("""
+            <div style="
+                background: #1e293b;
+                border-radius: 12px;
+                overflow: hidden;
+                margin: 10px 0;
+            ">
+                <div style="
+                    display: grid;
+                    grid-template-columns: 2fr 1.5fr 1.5fr 1.5fr;
+                    background: #0f172a;
+                    padding: 12px 16px;
+                    color: #94a3b8;
+                    font-weight: bold;
+                    font-size: 14px;
+                ">
+                    <div>Employee</div>
+                    <div>Department</div>
+                    <div>Leave Type</div>
+                    <div>Resumption</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            for name, department, leave_type, resumption_date in on_leave_data:
+                resumption_str = resumption_date.strftime("%d/%m/%Y") if resumption_date else "N/A"
+                
+                st.markdown(f"""
+                <div style="
+                    display: grid;
+                    grid-template-columns: 2fr 1.5fr 1.5fr 1.5fr;
+                    padding: 12px 16px;
+                    border-bottom: 1px solid #334155;
+                    color: #e2e8f0;
+                ">
+                    <div><strong>{name}</strong></div>
+                    <div>{department or 'N/A'}</div>
+                    <div>{leave_type}</div>
+                    <div>{resumption_str}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.info("✅ No staff currently on leave")
+        
+        # =============================================
+        # QUICK STATS FOOTER
+        # =============================================
+        st.markdown("---")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("📊 Total Leave Types", len(utilization_data) if utilization_data else 0)
+        with col2:
+            st.metric("📅 Current Year", datetime.now().year)
+        with col3:
+            # Get total leave days taken this year
+            try:
+                if is_cloud:
+                    cursor.execute("SELECT COALESCE(SUM(number_of_days), 0) FROM leave_applications WHERE status = 'APPROVED' AND EXTRACT(YEAR FROM start_date) = %s", (datetime.now().year,))
+                else:
+                    cursor.execute("SELECT COALESCE(SUM(number_of_days), 0) FROM leave_applications WHERE status = 'APPROVED' AND strftime('%Y', start_date) = ?", (str(datetime.now().year),))
+                total_days = cursor.fetchone()[0] or 0
+                st.metric("📈 Total Days Taken", f"{total_days:.0f}")
+            except:
+                st.metric("📈 Total Days Taken", "N/A")
+        with col4:
+            st.metric("👥 Staff on Leave", on_leave_today)
+    
+    except Exception as e:
+        st.error(f"Error loading dashboard: {e}")
+    finally:
+        conn.close()
 
 def leave_application():
     """Apply for Leave - Employee Interface"""
