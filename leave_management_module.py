@@ -1281,7 +1281,21 @@ def leave_application():
                             attachment_url = attachment.name if attachment else None
                             
                             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            username = st.session_state.user.get('username', 'system')
+                            
+                            # FIX: Get user ID instead of username
+                            user_id = st.session_state.user.get('id')
+                            if user_id is None:
+                                # If user ID not available, try to get it from database
+                                username = st.session_state.user.get('username', 'system')
+                                if is_cloud:
+                                    cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+                                else:
+                                    cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+                                result = cursor.fetchone()
+                                user_id = result[0] if result else None
+                            
+                            # If still no user_id, use NULL
+                            created_by = user_id if user_id else None
                             
                             leave_type_id = selected_leave_type
                             acting_officer_val = acting_officer if acting_officer else None
@@ -1299,7 +1313,7 @@ def leave_application():
                                     start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"),
                                     working_days, resumption_date.strftime("%Y-%m-%d"),
                                     reason, attachment_url, acting_officer_val,
-                                    'PENDING', username, now
+                                    'PENDING', created_by, now
                                 ))
                                 application_id = cursor.fetchone()[0]
                             else:
@@ -1314,7 +1328,7 @@ def leave_application():
                                     start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"),
                                     working_days, resumption_date.strftime("%Y-%m-%d"),
                                     reason, attachment_url, acting_officer_val,
-                                    'PENDING', username, now
+                                    'PENDING', created_by, now
                                 ))
                                 application_id = cursor.lastrowid
                             
