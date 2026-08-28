@@ -14068,14 +14068,14 @@ def reports():
             timeline = timeline.sort_values('created_date')
             
             fig = px.line(timeline, x='created_date', y='count', 
-                         title="Applications Over Time", labels={'count': 'Number of Applications', 'created_date': 'Date'})
+                        title="Applications Over Time", labels={'count': 'Number of Applications', 'created_date': 'Date'})
             fig.update_layout(height=400)
             st.plotly_chart(fig, use_container_width=True)
             
             # Cumulative applications
             timeline['cumulative'] = timeline['count'].cumsum()
             fig2 = px.area(timeline, x='created_date', y='cumulative',
-                           title="Cumulative Applications", labels={'cumulative': 'Total Applications', 'created_date': 'Date'})
+                        title="Cumulative Applications", labels={'cumulative': 'Total Applications', 'created_date': 'Date'})
             fig2.update_layout(height=400)
             st.plotly_chart(fig2, use_container_width=True)
             
