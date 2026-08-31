@@ -25,22 +25,7 @@ import uuid  # NEW: For generating unique IDs
 from google.cloud import storage  # NEW: For GCS
 from google.oauth2 import service_account  # NEW: For GCS authentication
 
-# # =========================================================
-# # PASTE THE IMPORT CODE HERE - RIGHT AFTER YOUR EXISTING IMPORTS
-# # =========================================================
-# # Import Leave Management Module
-# try:
-#     from leave_management_module import (
-#         leave_management_router,
-#         migrate_leave_tables
-#     )
-#     LEAVE_MODULE_AVAILABLE = True
-# except ImportError:
-#     LEAVE_MODULE_AVAILABLE = False
-#     def leave_management_router():
-#         st.info("🏖️ Leave Management Module - Please install the module")
-#     def migrate_leave_tables():
-#         pass
+
 # =========================================================
 # EMAIL FUNCTIONS
 # =========================================================
