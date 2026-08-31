@@ -15,12 +15,15 @@ from dateutil.relativedelta import relativedelta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import secrets  # ADD THIS - for generating secure tokens
-import json  # ADD THIS - for handling JSON data
-import requests  # ADD THIS - for API calls (if using SendGrid)
+import secrets
+import json
+import requests
 import numpy as np
 import google.generativeai as genai
 import time
+import uuid  # NEW: For generating unique IDs
+from google.cloud import storage  # NEW: For GCS
+from google.oauth2 import service_account  # NEW: For GCS authentication
 
 # =========================================================
 # PASTE THE IMPORT CODE HERE - RIGHT AFTER YOUR EXISTING IMPORTS
@@ -150,6 +153,7 @@ ROLE_PERMISSIONS = {
             "💾 Backup & Restore",
             "🧪 Test Data",
             "⚙️ Settings",
+            "🔍 Test GCS Connection",
             "👤 Users"
         ],
         "permissions": [
@@ -611,6 +615,400 @@ def get_cached_shortlisted_candidates():
     """, conn)
     conn.close()
     return df
+# =========================================================
+# GOOGLE CLOUD STORAGE FUNCTIONS
+# =========================================================
+
+import json
+import uuid
+from datetime import datetime
+from google.cloud import storage
+from google.oauth2 import service_account
+
+def test_gcs_connection():
+    """Test Google Cloud Storage connection"""
+    try:
+        credentials_json = st.secrets.get("GCS_CREDENTIALS")
+        if not credentials_json:
+            return "❌ GCS_CREDENTIALS not found in secrets"
+        
+        if isinstance(credentials_json, str):
+            creds_dict = json.loads(credentials_json)
+        else:
+            creds_dict = credentials_json
+        
+        credentials = service_account.Credentials.from_service_account_info(creds_dict)
+        client = storage.Client(credentials=credentials)
+        
+        bucket_name = st.secrets.get("GCS_BUCKET_NAME")
+        if not bucket_name:
+            return "❌ GCS_BUCKET_NAME not found in secrets"
+        
+        bucket = client.bucket(bucket_name)
+        
+        # Test upload
+        test_blob = bucket.blob("test/test_connection.txt")
+        test_blob.upload_from_string("✅ GCS connection successful!")
+        test_blob.delete()
+        
+        return f"✅ GCS connected! Bucket: {bucket_name}"
+        
+    except Exception as e:
+        return f"❌ GCS error: {str(e)}"
+
+def get_gcs_client():
+    """Get Google Cloud Storage client using credentials from secrets"""
+    try:
+        credentials_json = st.secrets.get("GCS_CREDENTIALS")
+        if credentials_json:
+            if isinstance(credentials_json, str):
+                creds_dict = json.loads(credentials_json)
+            else:
+                creds_dict = credentials_json
+            
+            credentials = service_account.Credentials.from_service_account_info(creds_dict)
+            client = storage.Client(credentials=credentials)
+        else:
+            client = storage.Client()
+        
+        return client
+    except Exception as e:
+        print(f"GCS client error: {e}")
+        return None
+
+def upload_document_to_gcs(file_data, filename, applicant_name, doc_type, applicant_id=None):
+    """
+    Upload document to Google Cloud Storage
+    
+    Parameters:
+    - file_data: Binary file data (bytes)
+    - filename: Original filename
+    - applicant_name: Name of the applicant
+    - doc_type: Type of document (national_id, kcse, etc.)
+    - applicant_id: Optional applicant ID for folder structure
+    
+    Returns:
+    - public_url: Public URL of the uploaded file
+    - storage_path: Storage path of the file
+    """
+    try:
+        client = get_gcs_client()
+        if client is None:
+            return None, None
+        
+        bucket_name = st.secrets.get("GCS_BUCKET_NAME")
+        if not bucket_name:
+            print("❌ GCS_BUCKET_NAME not configured in secrets")
+            return None, None
+        
+        bucket = client.bucket(bucket_name)
+        
+        # Generate unique filename
+        extension = filename.split('.')[-1] if '.' in filename else 'pdf'
+        unique_id = uuid.uuid4().hex[:8]
+        safe_name = applicant_name.replace(" ", "_").replace("/", "_")[:30]
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        # Create folder structure
+        if applicant_id:
+            folder = f"applicants/{applicant_id}_{safe_name}_{timestamp}"
+        else:
+            folder = f"applicants/{safe_name}_{timestamp}"
+        
+        storage_path = f"{folder}/{doc_type}.{extension}"
+        blob = bucket.blob(storage_path)
+        
+        # Upload file
+        blob.upload_from_string(
+            file_data,
+            content_type=f'application/{extension}',
+            timeout=60
+        )
+        
+        # Make publicly accessible
+        blob.make_public()
+        
+        return blob.public_url, storage_path
+        
+    except Exception as e:
+        print(f"GCS upload error: {e}")
+        return None, None
+
+def delete_document_from_gcs(storage_path):
+    """Delete a document from Google Cloud Storage"""
+    try:
+        client = get_gcs_client()
+        if client is None:
+            return False
+        
+        bucket_name = st.secrets.get("GCS_BUCKET_NAME")
+        if not bucket_name:
+            return False
+        
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(storage_path)
+        
+        if blob.exists():
+            blob.delete()
+            return True
+        
+        return False
+    except Exception as e:
+        print(f"GCS delete error: {e}")
+        return False
+
+def get_gcs_file_url(storage_path):
+    """Get public URL for a file in GCS"""
+    if not storage_path:
+        return None
+    
+    try:
+        client = get_gcs_client()
+        if client is None:
+            return None
+        
+        bucket_name = st.secrets.get("GCS_BUCKET_NAME")
+        if not bucket_name:
+            return None
+        
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(storage_path)
+        
+        if blob.exists():
+            return blob.public_url
+        
+        return None
+    except Exception as e:
+        print(f"GCS file URL error: {e}")
+        return None
+
+def save_document_to_gcs(applicant_id, doc_type, file_obj, applicant_name):
+    """
+    Save a document to Google Cloud Storage and update metadata
+    """
+    if file_obj is None:
+        return None
+    
+    try:
+        # Read file data
+        file_data = file_obj.read()
+        filename = file_obj.name
+        file_size = len(file_data)
+        
+        # Upload to GCS
+        public_url, storage_path = upload_document_to_gcs(
+            file_data=file_data,
+            filename=filename,
+            applicant_name=applicant_name,
+            doc_type=doc_type,
+            applicant_id=applicant_id
+        )
+        
+        if public_url and storage_path:
+            # Save metadata to database
+            conn = get_conn()
+            if conn:
+                success = save_document_metadata(
+                    conn=conn,
+                    applicant_id=applicant_id,
+                    doc_type=doc_type,
+                    filename=filename,
+                    file_path=storage_path,
+                    file_size=file_size,
+                    applicant_name=applicant_name,
+                    id_number=None
+                )
+                conn.close()
+                if success:
+                    return {
+                        'public_url': public_url,
+                        'storage_path': storage_path,
+                        'filename': filename,
+                        'size': file_size
+                    }
+        
+        return None
+        
+    except Exception as e:
+        print(f"Error saving document to GCS: {e}")
+        return None
+
+def save_document_metadata(conn, applicant_id, doc_type, filename, file_path, file_size, applicant_name=None, id_number=None):
+    """Save document metadata to database (for GCS)"""
+    cursor = conn.cursor()
+    is_cloud = st.secrets.get("DATABASE_URL") is not None
+    
+    try:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        if is_cloud:
+            cursor.execute("""
+                INSERT INTO applicant_documents (
+                    applicant_id, applicant_name, id_number, doc_type, 
+                    filename, file_path, file_size, uploaded_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (applicant_id, applicant_name, id_number, doc_type, filename, file_path, file_size, now))
+        else:
+            cursor.execute("""
+                INSERT INTO applicant_documents (
+                    applicant_id, applicant_name, id_number, doc_type, 
+                    filename, file_path, file_size, uploaded_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (applicant_id, applicant_name, id_number, doc_type, filename, file_path, file_size, now))
+        
+        return True
+    except Exception as e:
+        print(f"Metadata save error: {e}")
+        return False
+
+def view_gcs_documents():
+    """Display documents from Google Cloud Storage"""
+    
+    st.subheader("📄 Applicant Documents (GCS)")
+    
+    conn = get_conn()
+    applicants = pd.read_sql("SELECT id, name FROM staff ORDER BY name", conn)
+    
+    if applicants.empty:
+        st.info("No applicants found")
+        conn.close()
+        return
+    
+    selected_applicant = st.selectbox(
+        "Select Applicant",
+        applicants['id'].tolist(),
+        format_func=lambda x: applicants[applicants['id'] == x]['name'].iloc[0]
+    )
+    
+    if selected_applicant:
+        # Get document metadata from database
+        is_cloud = st.secrets.get("DATABASE_URL") is not None
+        
+        if is_cloud:
+            docs = pd.read_sql(
+                "SELECT * FROM applicant_documents WHERE applicant_id = %s ORDER BY uploaded_at DESC",
+                conn,
+                params=(selected_applicant,)
+            )
+        else:
+            docs = pd.read_sql(
+                "SELECT * FROM applicant_documents WHERE applicant_id = ? ORDER BY uploaded_at DESC",
+                conn,
+                params=(selected_applicant,)
+            )
+        
+        if docs.empty:
+            st.info("📭 No documents uploaded for this applicant")
+        else:
+            for idx, doc in docs.iterrows():
+                with st.expander(f"📄 {doc['doc_type']} - {doc['filename']}"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**File:** {doc['filename']}")
+                        st.write(f"**Type:** {doc['doc_type']}")
+                        st.write(f"**Size:** {doc['file_size']} bytes")
+                        st.write(f"**Uploaded:** {doc['uploaded_at']}")
+                    with col2:
+                        st.write(f"**Storage:** Google Cloud Storage")
+                        
+                        # Check if file exists in GCS
+                        try:
+                            client = get_gcs_client()
+                            if client:
+                                bucket = client.bucket(st.secrets["GCS_BUCKET_NAME"])
+                                blob = bucket.blob(doc['file_path'])
+                                if blob.exists():
+                                    st.success("✅ File available")
+                                    
+                                    # Download button
+                                    file_data = blob.download_as_bytes()
+                                    st.download_button(
+                                        label="📥 Download",
+                                        data=file_data,
+                                        file_name=doc['filename'],
+                                        mime="application/octet-stream",
+                                        key=f"download_{doc['id']}",
+                                        use_container_width=True
+                                    )
+                                    
+                                    # Preview image
+                                    if doc['filename'].lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                                        st.image(file_data, caption=doc['filename'], use_container_width=True)
+                                    
+                                    # Direct link
+                                    st.caption(f"🔗 [View directly]({blob.public_url})")
+                                else:
+                                    st.error("❌ File not found in cloud storage")
+                            else:
+                                st.error("❌ Could not connect to cloud storage")
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+    
+    conn.close()
+
+def test_gcs_page():
+    """Page to test Google Cloud Storage connection"""
+    
+    st.markdown("""
+    <div class="main-header">
+        <h1 style="color: white; margin: 0;">🔍 Google Cloud Storage Test</h1>
+        <p style="color: rgba(255,255,255,0.8); margin-top: 0.5rem;">Verify GCS connection and permissions</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Show current configuration
+    st.subheader("📋 Current Configuration")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write("**Bucket Name:**")
+        st.code(st.secrets.get("GCS_BUCKET_NAME", "Not set"))
+        
+        st.write("**Credentials:**")
+        if st.secrets.get("GCS_CREDENTIALS"):
+            st.success("✅ Credentials found")
+        else:
+            st.error("❌ Credentials not found")
+    
+    with col2:
+        st.write("**Service Account:**")
+        try:
+            creds = json.loads(st.secrets.get("GCS_CREDENTIALS", "{}"))
+            st.code(creds.get("client_email", "Not found"))
+        except:
+            st.code("Not available")
+    
+    st.markdown("---")
+    
+    # Test button
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🔍 Run GCS Test", use_container_width=True, type="primary"):
+            with st.spinner("Testing Google Cloud Storage..."):
+                result = test_gcs_connection()
+                if "✅" in result:
+                    st.success(f"✅ {result}")
+                    st.balloons()
+                else:
+                    st.error(f"❌ {result}")
+    
+    st.markdown("---")
+    
+    # Test result details
+    st.subheader("📊 Test Details")
+    st.info("""
+    **What this test does:**
+    1. ✅ Connects to Google Cloud Storage using your credentials
+    2. ✅ Uploads a test file to your bucket
+    3. ✅ Verifies the file was uploaded
+    4. ✅ Deletes the test file
+    5. ✅ Returns success or error message
+    
+    **If it fails, check:**
+    - GCS_CREDENTIALS in secrets.toml
+    - GCS_BUCKET_NAME is correct
+    - Service account has proper permissions
+    """)
 # =========================================================
 # SECURITY FUNCTIONS
 # =========================================================
@@ -7033,6 +7431,7 @@ def sidebar():
             "🧪 Test Data": "Generate sample data",
             "⚙️ Settings": "System configuration",
             "👤 Users": "User management",
+            "🔍 Test GCS Connection": "Google Cloud Storage Test",
             
             # =========================================================
             # LEAVE MANAGEMENT MENU DESCRIPTIONS
@@ -17425,6 +17824,8 @@ def main():
         ai_knowledge_base()
     elif menu == "🏖️ Leave Management" or menu.startswith("    ├─") or menu.startswith("    └─"):
         leave_management_router()
+    elif menu == "🔍 Test GCS Connection":
+    test_gcs_page()
     elif menu == "👤 Users":
         users()
     else:
