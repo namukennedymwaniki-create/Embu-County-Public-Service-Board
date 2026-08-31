@@ -9673,8 +9673,6 @@ def data_entry():
                     "Newspaper Advertisement",
                     "County Website",
                     "Social Media",
-                    "Word of Mouth",
-                    "Job Portal",
                     "Other"
                 ])
             
@@ -9698,10 +9696,49 @@ def data_entry():
                 yob = st.number_input("🎂 Year of Birth", step=1, min_value=1950, max_value=2026, value=1990)
                 kra_pin = st.text_input("KRA PIN", placeholder="Enter KRA PIN (e.g., A123456789B)")
                 ethnicity = st.selectbox("🌍 Ethnicity", [
-                    "Select Ethnicity", "Kikuyu", "Luo", "Luhya", "Kamba", "Kalenjin", 
-                    "Meru", "Embu", "Mijikenda", "Turkana", "Maasai", "Kisii", "Taita", "Somali", "Other"
+                    "Select Ethnicity", "Kalenjin", "Kamba", "Kikuyu", "Luhya", "Luo", "Kisii", "Mijikenda", "Meru", "Maasai", 
+                    "Turkana", "Somali", "Taita/Taveta", "Mbeere", "Embu", "Teso", "Other"
                 ], index=0)
-                disability = st.selectbox("♿ Disability Status", ["None", "Physical", "Visual", "Hearing", "Speech", "Learning", "Other"], index=0)
+                # =========================================================
+                # DISABILITY WITH NCPWD REGISTRATION NUMBER
+                # =========================================================
+                disability = st.selectbox("♿ Disability Status", [
+                    "None", 
+                    "Physical Disability", 
+                    "Visual Impairment", 
+                    "Hearing Impairment", 
+                    "Speech Impairment", 
+                    "Learning Disability", 
+                    "Mental Health Condition",
+                    "Albinism",
+                    "Other"
+                ], index=0)
+                
+                # Show NCPWD Registration Number field if disability is not "None"
+                ncpwd_number = ""
+                if disability != "None":
+                    st.markdown("""
+                    <div style="
+                        background: #e8f4fd; 
+                        border-left: 4px solid #4A90D9; 
+                        padding: 12px 15px; 
+                        border-radius: 4px;
+                        margin-bottom: 10px;
+                    ">
+                        <span style="color: #1a1a2e; font-weight: 500;">♿ Persons with Disability (PWD)</span>
+                        <span style="color: #666; font-size: 13px; margin-left: 10px;">Please provide your NCPWD registration number</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    ncpwd_number = st.text_input(
+                        "NCPWD Registration Number*", 
+                        placeholder="e.g., NCPWD/12345/2024",
+                        help="National Council for Persons with Disabilities registration number",
+                        key="ncpwd_number"
+                    )
+                    
+                    # Show helper text
+                    st.caption("📌 Your NCPWD registration number helps us verify your disability status for affirmative action consideration.")
                 nationality = st.selectbox("Nationality", ["Select", "Kenyan", "Other"], index=0)
                 
             with col2:
