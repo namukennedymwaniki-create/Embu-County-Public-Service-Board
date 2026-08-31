@@ -610,36 +610,331 @@ from datetime import datetime
 from google.cloud import storage
 from google.oauth2 import service_account
 
-def test_gcs_connection():
-    """Test Google Cloud Storage connection"""
-    try:
-        credentials_json = st.secrets.get("GCS_CREDENTIALS")
-        if not credentials_json:
-            return "❌ GCS_CREDENTIALS not found in secrets"
+def test_gcs_page():
+    """Page to test Google Cloud Storage connection and upload"""
+    
+    st.markdown("""
+    <div class="main-header">
+        <h1 style="color: white; margin: 0;">🔍 Google Cloud Storage Test</h1>
+        <p style="color: rgba(255,255,255,0.8); margin-top: 0.5rem;">Verify GCS connection and test file uploads</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Create tabs
+    tab1, tab2 = st.tabs(["🔌 Connection Test", "📤 Upload Test"])
+    
+    # =========================================================
+    # TAB 1: CONNECTION TEST
+    # =========================================================
+    with tab1:
+        st.subheader("📋 Current Configuration")
         
-        if isinstance(credentials_json, str):
-            creds_dict = json.loads(credentials_json)
-        else:
-            creds_dict = credentials_json
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Bucket Name:**")
+            st.code(st.secrets.get("GCS_BUCKET_NAME", "Not set"))
+            
+            st.write("**Credentials:**")
+            if st.secrets.get("GCS_CREDENTIALS"):
+                st.success("✅ Credentials found")
+            else:
+                st.error("❌ Credentials not found")
         
-        credentials = service_account.Credentials.from_service_account_info(creds_dict)
-        client = storage.Client(credentials=credentials)
+        with col2:
+            st.write("**Service Account:**")
+            try:
+                import json
+                creds = json.loads(st.secrets.get("GCS_CREDENTIALS", "{}"))
+                st.code(creds.get("client_email", "Not found"))
+            except:
+                st.code("Not available")
         
-        bucket_name = st.secrets.get("GCS_BUCKET_NAME")
-        if not bucket_name:
-            return "❌ GCS_BUCKET_NAME not found in secrets"
+        st.markdown("---")
         
-        bucket = client.bucket(bucket_name)
+        # Test button
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🔍 Run GCS Test", use_container_width=True, type="primary"):
+                with st.spinner("Testing Google Cloud Storage..."):
+                    result = test_gcs_connection()
+                    if "✅" in result:
+                        st.success(f"✅ {result}")
+                        st.balloons()
+                    else:
+                        st.error(f"❌ {result}")
         
-        # Test upload
-        test_blob = bucket.blob("test/test_connection.txt")
-        test_blob.upload_from_string("✅ GCS connection successful!")
-        test_blob.delete()
+        st.markdown("---")
         
-        return f"✅ GCS connected! Bucket: {bucket_name}"
+        # Test details
+        st.subheader("📊 Test Details")
+        st.info("""
+        **What this test does:**
+        1. ✅ Connects to Google Cloud Storage using your credentials
+        2. ✅ Uploads a test file to your bucket
+        3. ✅ Verifies the file was uploaded
+        4. ✅ Deletes the test file
+        5. ✅ Returns success or error message
         
-    except Exception as e:
-        return f"❌ GCS error: {str(e)}"
+        **If it fails, check:**
+        - GCS_CREDENTIALS in secrets.toml
+        - GCS_BUCKET_NAME is correct
+        - Service account has proper permissions
+        """)
+    
+    # =========================================================
+    # TAB 2: UPLOAD TEST
+    # =========================================================
+    with tab2:
+        st.subheader("📤 Test File Upload to GCS")
+        st.info("Upload a file to test the complete GCS upload pipeline")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # File upload
+            uploaded_file = st.file_uploader(
+                "Choose a file to upload",
+                type=["pdf", "jpg", "jpeg", "png", "txt", "doc", "docx"],
+                key="gcs_upload_test_file"
+            )
+            
+            doc_type = st.selectbox(
+                "Document Type",
+                ["national_id", "kcse_cert", "degree_cert", "prof_cert", "passport_photo", "birth_cert", "other_doc", "test_doc"]
+            )
+        
+        with col2:
+            applicant_name = st.text_input("Applicant Name", value="Test_User")
+            applicant_id = st.number_input("Applicant ID (for testing)", min_value=1, value=9999, step=1)
+            id_number = st.text_input("ID Number (for testing)", value="99999999")
+            show_debug = st.checkbox("Show Debug Information", value=True)
+        
+        if uploaded_file and st.button("🚀 Upload to GCS", use_container_width=True, type="primary"):
+            st.markdown("---")
+            st.subheader("📤 Upload Progress")
+            
+            # Progress container
+            progress_container = st.container()
+            status_container = st.container()
+            
+            try:
+                # Step 1: Read file
+                with status_container:
+                    st.write("📄 **Step 1: Reading file...**")
+                
+                file_data = uploaded_file.read()
+                file_size = len(file_data)
+                filename = uploaded_file.name
+                
+                st.write(f"   - File: **{filename}**")
+                st.write(f"   - Size: **{file_size:,} bytes**")
+                st.write(f"   - Type: **{doc_type}**")
+                st.write(f"   - Applicant: **{applicant_name}** (ID: {applicant_id})")
+                
+                if file_size == 0:
+                    st.error("❌ File is empty!")
+                    return
+                
+                # Step 2: Upload to GCS
+                with status_container:
+                    st.write("📤 **Step 2: Uploading to Google Cloud Storage...**")
+                
+                with st.spinner("Uploading to GCS..."):
+                    public_url, storage_path = upload_document_to_gcs(
+                        file_data=file_data,
+                        filename=filename,
+                        applicant_name=applicant_name,
+                        doc_type=doc_type,
+                        applicant_id=applicant_id
+                    )
+                
+                if public_url and storage_path:
+                    st.success("✅ Uploaded to GCS successfully!")
+                    st.write(f"   - **Public URL:** {public_url}")
+                    st.write(f"   - **Storage Path:** {storage_path}")
+                    
+                    # Step 3: Save metadata to database
+                    with status_container:
+                        st.write("💾 **Step 3: Saving metadata to database...**")
+                    
+                    conn = get_conn()
+                    if conn:
+                        success = save_document_metadata(
+                            conn=conn,
+                            applicant_id=applicant_id,
+                            doc_type=doc_type,
+                            filename=filename,
+                            file_path=storage_path,
+                            file_size=file_size,
+                            applicant_name=applicant_name,
+                            id_number=id_number
+                        )
+                        conn.close()
+                        
+                        if success:
+                            st.success("✅ Metadata saved to database!")
+                        else:
+                            st.error("❌ Failed to save metadata to database")
+                    else:
+                        st.error("❌ Could not connect to database")
+                    
+                    # Step 4: Verify in database
+                    with status_container:
+                        st.write("🔍 **Step 4: Verifying in database...**")
+                    
+                    conn2 = get_conn()
+                    cursor = conn2.cursor()
+                    is_cloud = st.secrets.get("DATABASE_URL") is not None
+                    
+                    if is_cloud:
+                        cursor.execute("""
+                            SELECT * FROM applicant_documents 
+                            WHERE applicant_id = %s AND doc_type = %s 
+                            ORDER BY id DESC LIMIT 1
+                        """, (applicant_id, doc_type))
+                    else:
+                        cursor.execute("""
+                            SELECT * FROM applicant_documents 
+                            WHERE applicant_id = ? AND doc_type = ? 
+                            ORDER BY id DESC LIMIT 1
+                        """, (applicant_id, doc_type))
+                    
+                    result = cursor.fetchone()
+                    conn2.close()
+                    
+                    if result:
+                        st.success("✅ **All steps completed successfully!** 🎉")
+                        
+                        if show_debug:
+                            st.subheader("📋 Database Record")
+                            st.write(f"   - **ID:** {result[0]}")
+                            st.write(f"   - **Applicant ID:** {result[1]}")
+                            st.write(f"   - **Applicant Name:** {result[2]}")
+                            st.write(f"   - **ID Number:** {result[3]}")
+                            st.write(f"   - **Document Type:** {result[4]}")
+                            st.write(f"   - **Filename:** {result[5]}")
+                            st.write(f"   - **File Path:** {result[6]}")
+                            st.write(f"   - **File Size:** {result[7]:,} bytes")
+                            st.write(f"   - **Uploaded At:** {result[8]}")
+                    else:
+                        st.error("❌ Verification failed - document not found in database")
+                    
+                    # Step 5: View uploaded file
+                    with status_container:
+                        st.write("📎 **Step 5: View uploaded file...**")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        # Direct link
+                        st.markdown(f"[🔗 View File]({public_url})", unsafe_allow_html=True)
+                        
+                        # Copyable URL
+                        st.code(public_url, language="text")
+                        
+                        # Download button
+                        try:
+                            import requests
+                            response = requests.get(public_url)
+                            if response.status_code == 200:
+                                st.download_button(
+                                    label="📥 Download File",
+                                    data=response.content,
+                                    file_name=filename,
+                                    mime="application/octet-stream",
+                                    use_container_width=True
+                                )
+                        except:
+                            pass
+                    
+                    with col2:
+                        # File preview
+                        if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                            st.image(public_url, caption=filename, use_container_width=True)
+                        elif filename.lower().endswith('.pdf'):
+                            st.markdown(f"""
+                            <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 4px;">
+                                <embed src="{public_url}" type="application/pdf" width="100%" height="400px" />
+                            </div>
+                            """, unsafe_allow_html=True)
+                        elif filename.lower().endswith(('.txt')):
+                            try:
+                                import requests
+                                response = requests.get(public_url)
+                                if response.status_code == 200:
+                                    st.text_area("File Content", response.text[:1000], height=200, disabled=True)
+                            except:
+                                pass
+                        else:
+                            st.info(f"📄 File uploaded successfully: {filename}")
+                    
+                    st.balloons()
+                    
+                else:
+                    st.error("❌ GCS upload failed!")
+                    
+                    # Show error details
+                    if show_debug:
+                        st.subheader("🔍 Debug Information")
+                        st.write("**Upload function returned:**")
+                        st.write(f"   - public_url: {public_url}")
+                        st.write(f"   - storage_path: {storage_path}")
+                        
+                        # Check GCS client
+                        client = get_gcs_client()
+                        if client:
+                            st.write("   - GCS Client: ✅ Connected")
+                            st.write(f"   - Bucket: {st.secrets.get('GCS_BUCKET_NAME')}")
+                        else:
+                            st.write("   - GCS Client: ❌ Not connected")
+                
+            except Exception as e:
+                st.error(f"❌ Error during upload: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
+        
+        # Show recent uploads
+        st.markdown("---")
+        st.subheader("📋 Recent Uploads")
+        
+        try:
+            conn = get_conn()
+            if conn:
+                is_cloud = st.secrets.get("DATABASE_URL") is not None
+                
+                if is_cloud:
+                    recent_docs = pd.read_sql("""
+                        SELECT id, applicant_id, applicant_name, doc_type, filename, file_size, uploaded_at 
+                        FROM applicant_documents 
+                        ORDER BY uploaded_at DESC 
+                        LIMIT 10
+                    """, conn)
+                else:
+                    recent_docs = pd.read_sql("""
+                        SELECT id, applicant_id, applicant_name, doc_type, filename, file_size, uploaded_at 
+                        FROM applicant_documents 
+                        ORDER BY uploaded_at DESC 
+                        LIMIT 10
+                    """, conn)
+                
+                conn.close()
+                
+                if not recent_docs.empty:
+                    st.dataframe(recent_docs, use_container_width=True)
+                    
+                    # Export button
+                    csv = recent_docs.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        "📥 Download Recent Uploads (CSV)",
+                        csv,
+                        f"recent_uploads_{datetime.now().strftime('%Y%m%d')}.csv",
+                        "text/csv",
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No recent uploads found")
+        except Exception as e:
+            st.info("No recent uploads found")
 
 def get_gcs_client():
     """Get Google Cloud Storage client using credentials from secrets"""
