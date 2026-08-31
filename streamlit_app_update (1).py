@@ -9699,12 +9699,10 @@ def data_entry():
                     "Select Ethnicity", "Kalenjin", "Kamba", "Kikuyu", "Luhya", "Luo", "Kisii", "Mijikenda", "Meru", "Maasai", 
                     "Turkana", "Somali", "Taita/Taveta", "Mbeere", "Embu", "Teso", "Other"
                 ], index=0)
-                # =========================================================
-                # DISABILITY WITH NCPWD REGISTRATION NUMBER
-                # =========================================================
-                # Initialize ncpwd_number variable
-                ncpwd_number = ""
                 
+                # =========================================================
+                # DISABILITY WITH NCPWD REGISTRATION NUMBER - FIXED
+                # =========================================================
                 disability = st.selectbox(
                     "♿ Disability Status", 
                     [
@@ -9719,8 +9717,11 @@ def data_entry():
                         "Other"
                     ], 
                     index=0,
-                    key="disability_status"
+                    key="disability_select"
                 )
+                
+                # Initialize ncpwd_number
+                ncpwd_number = ""
                 
                 # Show NCPWD Registration Number field if disability is not "None"
                 if disability != "None":
@@ -9738,7 +9739,7 @@ def data_entry():
                     """, unsafe_allow_html=True)
                     
                     ncpwd_number = st.text_input(
-                        "NCPWD Registration Number*", 
+                        "NCPWD Registration Number", 
                         placeholder="e.g., NCPWD/12345/2024",
                         help="National Council for Persons with Disabilities registration number",
                         key="ncpwd_number_input"
@@ -9746,8 +9747,9 @@ def data_entry():
                     
                     # Show helper text
                     st.caption("📌 Your NCPWD registration number helps us verify your disability status for affirmative action consideration.")
-                nationality = st.selectbox("Nationality", ["Select", "Kenyan", "Other"], index=0)
                 
+                nationality = st.selectbox("Nationality", ["Select", "Kenyan", "Other"], index=0)
+            
             with col2:
                 age = datetime.now().year - yob if yob else 0
                 if age > 0:
@@ -9779,28 +9781,12 @@ def data_entry():
                 alt_contact_mobile = st.text_input("Alternative Contact Person Mobile Number", placeholder="07XXXXXXXX")
         
         # =========================================================
-        # TAB 3: PUBLIC SERVICE
+        # TAB 3: PUBLIC SERVICE - FIXED
         # =========================================================
         with tab3:
             st.markdown("### 🏛️ Public Service Information")
             
             # Initialize variables
-            in_public_service = "No"
-            public_institution_category = ""
-            public_institution = ""
-            station = ""
-            employment_number = ""
-            present_substantive_post = ""
-            date_of_current_appointment = None
-            upgraded_post = ""
-            effective_date_previous_appointment = None
-            secondment_organisation = ""
-            secondment_designation = ""
-            job_group = ""
-            terms_of_service = ""
-            gross_monthly_salary = 0
-            expected_gross_monthly_salary = 0
-            
             in_public_service = st.radio(
                 "Are you currently in the Public Service?", 
                 ["No", "Yes"], 
@@ -9837,6 +9823,12 @@ def data_entry():
                         key="public_institution"
                     )
                     
+                    station = st.text_input(
+                        "Station",
+                        placeholder="e.g., Embu Town",
+                        key="station"
+                    )
+                    
                     employment_number = st.text_input(
                         "Personal/Employment No.",
                         placeholder="e.g., 123456",
@@ -9848,20 +9840,8 @@ def data_entry():
                         placeholder="e.g., JG 'M'",
                         key="job_group"
                     )
-                    
-                    secondment_organisation = st.text_input(
-                        "Secondment Organisation (if applicable)",
-                        placeholder="Name of organisation",
-                        key="secondment_organisation"
-                    )
                 
                 with col2:
-                    station = st.text_input(
-                        "Station",
-                        placeholder="e.g., Embu Town",
-                        key="station"
-                    )
-                    
                     present_substantive_post = st.text_input(
                         "Present Substantive Post",
                         placeholder="e.g., Senior Human Resource Officer",
@@ -9886,6 +9866,18 @@ def data_entry():
                         value=None,
                         key="effective_date_previous_appointment",
                         help="Format: dd-mm-yyyy"
+                    )
+                    
+                    secondment_organisation = st.text_input(
+                        "Secondment Organisation (if applicable)",
+                        placeholder="Name of organisation",
+                        key="secondment_organisation"
+                    )
+                    
+                    secondment_designation = st.text_input(
+                        "Secondment Designation (if applicable)",
+                        placeholder="e.g., Acting Director",
+                        key="secondment_designation"
                     )
                 
                 st.markdown("---")
@@ -9943,25 +9935,17 @@ def data_entry():
                 # Display summary if any data entered
                 if public_institution or present_substantive_post:
                     st.markdown("#### 📊 Public Service Summary")
-                    
-                    # Create summary in a nice format
-                    summary_html = f"""
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                        <table style="width: 100%;">
-                            <tr><td style="padding: 5px;"><strong>Institution:</strong></td><td style="padding: 5px;">{public_institution or 'Not specified'}</td></tr>
-                            <tr><td style="padding: 5px;"><strong>Category:</strong></td><td style="padding: 5px;">{public_institution_category if public_institution_category != 'Select' else 'Not specified'}</td></tr>
-                            <tr><td style="padding: 5px;"><strong>Station:</strong></td><td style="padding: 5px;">{station or 'Not specified'}</td></tr>
-                            <tr><td style="padding: 5px;"><strong>Employment No.:</strong></td><td style="padding: 5px;">{employment_number or 'Not specified'}</td></tr>
-                            <tr><td style="padding: 5px;"><strong>Current Post:</strong></td><td style="padding: 5px;">{present_substantive_post or 'Not specified'}</td></tr>
-                            <tr><td style="padding: 5px;"><strong>Job Group:</strong></td><td style="padding: 5px;">{job_group or 'Not specified'}</td></tr>
-                            <tr><td style="padding: 5px;"><strong>Terms:</strong></td><td style="padding: 5px;">{terms_of_service}</td></tr>
-                            <tr><td style="padding: 5px;"><strong>Current Salary:</strong></td><td style="padding: 5px;">{f"Kshs. {gross_monthly_salary:,.0f}" if gross_monthly_salary > 0 else 'Not specified'}</td></tr>
-                            <tr><td style="padding: 5px;"><strong>Expected Salary:</strong></td><td style="padding: 5px;">{f"Kshs. {expected_gross_monthly_salary:,.0f}" if expected_gross_monthly_salary > 0 else 'Not specified'}</td></tr>
-                        </table>
-                    </div>
-                    """
-                    st.markdown(summary_html, unsafe_allow_html=True)
-                
+                    st.info(f"""
+                    **Institution:** {public_institution or 'Not specified'}
+                    **Station:** {station or 'Not specified'}
+                    **Employment No.:** {employment_number or 'Not specified'}
+                    **Current Post:** {present_substantive_post or 'Not specified'}
+                    **Job Group:** {job_group or 'Not specified'}
+                    **Terms:** {terms_of_service}
+                    **Current Salary:** {f"Kshs. {gross_monthly_salary:,.0f}" if gross_monthly_salary > 0 else 'Not specified'}
+                    **Expected Salary:** {f"Kshs. {expected_gross_monthly_salary:,.0f}" if expected_gross_monthly_salary > 0 else 'Not specified'}
+                    """)
+            
             else:
                 st.info("📌 You selected 'No' - You are not currently in the Public Service.")
             
