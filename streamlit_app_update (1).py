@@ -17825,7 +17825,7 @@ def main():
     elif menu == "🏖️ Leave Management" or menu.startswith("    ├─") or menu.startswith("    └─"):
         leave_management_router()
     elif menu == "🔍 Test GCS Connection":
-    test_gcs_page()
+        test_gcs_page()
     elif menu == "👤 Users":
         users()
     else:
