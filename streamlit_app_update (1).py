@@ -9784,50 +9784,207 @@ def data_entry():
         with tab3:
             st.markdown("### 🏛️ Public Service Information")
             
-            col1, col2 = st.columns(2)
+            # Initialize variables
+            in_public_service = "No"
+            public_institution_category = ""
+            public_institution = ""
+            station = ""
+            employment_number = ""
+            present_substantive_post = ""
+            date_of_current_appointment = None
+            upgraded_post = ""
+            effective_date_previous_appointment = None
+            secondment_organisation = ""
+            secondment_designation = ""
+            job_group = ""
+            terms_of_service = ""
+            gross_monthly_salary = 0
+            expected_gross_monthly_salary = 0
             
-            with col1:
-                in_public_service = st.radio("Are you currently in the Public Service?", ["No", "Yes"], horizontal=True, index=0)
+            in_public_service = st.radio(
+                "Are you currently in the Public Service?", 
+                ["No", "Yes"], 
+                horizontal=True, 
+                index=0,
+                key="in_public_service_radio"
+            )
+            
+            if in_public_service == "Yes":
+                st.markdown("---")
+                st.markdown("#### 📋 Public Service Details")
                 
-                if in_public_service == "Yes":
-                    public_institution_category = st.selectbox("Public Institution Category", [
-                        "Select", "National Government", "County Government", 
-                        "State Corporation", "Constitutional Commission", "Other"
-                    ], index=0)
-                    public_institution = st.text_input("Public Institution", placeholder="Name of institution")
-                    station = st.text_input("Station", placeholder="Your current station")
-                    employment_number = st.text_input("Employment Number", placeholder="Your employment/payroll number")
-            
-            with col2:
-                if in_public_service == "Yes":
-                    present_substantive_post = st.text_input("Present Substantive Post", placeholder="e.g., Senior Human Resource Officer")
-                    date_of_current_appointment = st.date_input("Date of Current Appointment", value=None)
-                    upgraded_post = st.text_input("Upgraded Post (if applicable)", placeholder="Enter upgraded post if applicable")
-                    effective_date_previous_appointment = st.date_input("Effective Date of Previous Appointment", value=None)
-            
-            st.markdown("---")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                if in_public_service == "Yes":
-                    secondment_organisation = st.text_input("Secondment Organisation (if applicable)", placeholder="Name of organisation")
-                    secondment_designation = st.text_input("Secondment Designation (if applicable)")
-                    job_group = st.text_input("Job Group", placeholder="e.g., JG 'M'")
-            
-            with col2:
-                if in_public_service == "Yes":
-                    terms_of_service = st.selectbox("Terms of Service", [
-                        "Select", "Permanent", "Contract", "Temporary", "Internship", "Secondment"
-                    ], index=0)
+                # Organization Details
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    public_institution_category = st.selectbox(
+                        "Public Institution Category",
+                        [
+                            "Select", 
+                            "National Government", 
+                            "County Government", 
+                            "State Corporation", 
+                            "Constitutional Commission", 
+                            "Other"
+                        ], 
+                        index=0,
+                        key="public_institution_category"
+                    )
+                    
+                    public_institution = st.text_input(
+                        "Ministry/Department/County/Other Public Institutions",
+                        placeholder="e.g., Ministry of Health, Embu County",
+                        key="public_institution"
+                    )
+                    
+                    employment_number = st.text_input(
+                        "Personal/Employment No.",
+                        placeholder="e.g., 123456",
+                        key="employment_number"
+                    )
+                    
+                    job_group = st.text_input(
+                        "Job Group",
+                        placeholder="e.g., JG 'M'",
+                        key="job_group"
+                    )
+                    
+                    secondment_organisation = st.text_input(
+                        "Secondment Organisation (if applicable)",
+                        placeholder="Name of organisation",
+                        key="secondment_organisation"
+                    )
+                
+                with col2:
+                    station = st.text_input(
+                        "Station",
+                        placeholder="e.g., Embu Town",
+                        key="station"
+                    )
+                    
+                    present_substantive_post = st.text_input(
+                        "Present Substantive Post",
+                        placeholder="e.g., Senior Human Resource Officer",
+                        key="present_substantive_post"
+                    )
+                    
+                    date_of_current_appointment = st.date_input(
+                        "Date of Current Appointment",
+                        value=None,
+                        key="date_of_current_appointment",
+                        help="Format: dd-mm-yyyy"
+                    )
+                    
+                    upgraded_post = st.text_input(
+                        "Upgrading Post (if applicable)",
+                        placeholder="e.g., Chief Human Resource Officer",
+                        key="upgraded_post"
+                    )
+                    
+                    effective_date_previous_appointment = st.date_input(
+                        "Effective Date of Previous Appointment",
+                        value=None,
+                        key="effective_date_previous_appointment",
+                        help="Format: dd-mm-yyyy"
+                    )
+                
+                st.markdown("---")
+                
+                # Terms of Service
+                st.markdown("#### 📜 Terms of Service")
+                
+                terms_of_service = st.radio(
+                    "Select Terms of Service",
+                    [
+                        "Permanent & Pensionable",
+                        "Contract",
+                        "Temporary/Casual",
+                        "Other"
+                    ],
+                    horizontal=True,
+                    key="terms_of_service_radio"
+                )
+                
+                if terms_of_service == "Other":
+                    terms_of_service_other = st.text_input(
+                        "Specify Other Terms of Service",
+                        placeholder="Enter your terms of service",
+                        key="terms_of_service_other"
+                    )
+                    terms_of_service = terms_of_service_other
+                
+                st.markdown("---")
+                
+                # Salary Information
+                st.markdown("#### 💰 Salary Information")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    gross_monthly_salary = st.number_input(
+                        "Gross Monthly Salary (Kshs.)",
+                        min_value=0,
+                        value=0,
+                        step=1000,
+                        key="gross_monthly_salary",
+                        help="Enter your current gross monthly salary"
+                    )
+                with col2:
+                    expected_gross_monthly_salary = st.number_input(
+                        "Expected Gross Monthly Salary (Kshs.)",
+                        min_value=0,
+                        value=0,
+                        step=1000,
+                        key="expected_gross_monthly_salary",
+                        help="Enter your expected gross monthly salary"
+                    )
+                
+                st.markdown("---")
+                
+                # Display summary if any data entered
+                if public_institution or present_substantive_post:
+                    st.markdown("#### 📊 Public Service Summary")
+                    
+                    # Create summary in a nice format
+                    summary_html = f"""
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                        <table style="width: 100%;">
+                            <tr><td style="padding: 5px;"><strong>Institution:</strong></td><td style="padding: 5px;">{public_institution or 'Not specified'}</td></tr>
+                            <tr><td style="padding: 5px;"><strong>Category:</strong></td><td style="padding: 5px;">{public_institution_category if public_institution_category != 'Select' else 'Not specified'}</td></tr>
+                            <tr><td style="padding: 5px;"><strong>Station:</strong></td><td style="padding: 5px;">{station or 'Not specified'}</td></tr>
+                            <tr><td style="padding: 5px;"><strong>Employment No.:</strong></td><td style="padding: 5px;">{employment_number or 'Not specified'}</td></tr>
+                            <tr><td style="padding: 5px;"><strong>Current Post:</strong></td><td style="padding: 5px;">{present_substantive_post or 'Not specified'}</td></tr>
+                            <tr><td style="padding: 5px;"><strong>Job Group:</strong></td><td style="padding: 5px;">{job_group or 'Not specified'}</td></tr>
+                            <tr><td style="padding: 5px;"><strong>Terms:</strong></td><td style="padding: 5px;">{terms_of_service}</td></tr>
+                            <tr><td style="padding: 5px;"><strong>Current Salary:</strong></td><td style="padding: 5px;">{f"Kshs. {gross_monthly_salary:,.0f}" if gross_monthly_salary > 0 else 'Not specified'}</td></tr>
+                            <tr><td style="padding: 5px;"><strong>Expected Salary:</strong></td><td style="padding: 5px;">{f"Kshs. {expected_gross_monthly_salary:,.0f}" if expected_gross_monthly_salary > 0 else 'Not specified'}</td></tr>
+                        </table>
+                    </div>
+                    """
+                    st.markdown(summary_html, unsafe_allow_html=True)
+                
+            else:
+                st.info("📌 You selected 'No' - You are not currently in the Public Service.")
             
             st.markdown("---")
             st.markdown("#### ⚠️ Legal Declarations")
             
             col1, col2 = st.columns(2)
             with col1:
-                convicted = st.radio("Have you ever been convicted of a criminal offence?", ["No", "Yes"], horizontal=True, index=0)
+                convicted = st.radio(
+                    "Have you ever been convicted of a criminal offence?",
+                    ["No", "Yes"],
+                    horizontal=True,
+                    index=0,
+                    key="convicted"
+                )
             with col2:
-                dismissed = st.radio("Have you ever been dismissed from employment?", ["No", "Yes"], horizontal=True, index=0)
+                dismissed = st.radio(
+                    "Have you ever been dismissed from employment?",
+                    ["No", "Yes"],
+                    horizontal=True,
+                    index=0,
+                    key="dismissed"
+                )
             
             if convicted == "Yes":
                 st.warning("⚠️ Please provide details in the remarks section.")
