@@ -182,7 +182,9 @@ ROLE_PERMISSIONS = {
             "📤 Export Center",
             "✅ Data Quality",
             "⚙️ Settings",
+            "🔍 Test GCS Connection",
             "👤 Users"
+            
         ],
         "permissions": [
             "view_dashboard", "view_ai_kb", "upload_ai_documents", "view_staff", "add_staff", "edit_staff", "delete_staff",
