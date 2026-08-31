@@ -9702,20 +9702,27 @@ def data_entry():
                 # =========================================================
                 # DISABILITY WITH NCPWD REGISTRATION NUMBER
                 # =========================================================
-                disability = st.selectbox("♿ Disability Status", [
-                    "None", 
-                    "Physical Disability", 
-                    "Visual Impairment", 
-                    "Hearing Impairment", 
-                    "Speech Impairment", 
-                    "Learning Disability", 
-                    "Mental Health Condition",
-                    "Albinism",
-                    "Other"
-                ], index=0)
+                # Initialize ncpwd_number variable
+                ncpwd_number = ""
+                
+                disability = st.selectbox(
+                    "♿ Disability Status", 
+                    [
+                        "None", 
+                        "Physical Disability", 
+                        "Visual Impairment", 
+                        "Hearing Impairment", 
+                        "Speech Impairment", 
+                        "Learning Disability", 
+                        "Mental Health Condition",
+                        "Albinism",
+                        "Other"
+                    ], 
+                    index=0,
+                    key="disability_status"
+                )
                 
                 # Show NCPWD Registration Number field if disability is not "None"
-                ncpwd_number = ""
                 if disability != "None":
                     st.markdown("""
                     <div style="
@@ -9734,7 +9741,7 @@ def data_entry():
                         "NCPWD Registration Number*", 
                         placeholder="e.g., NCPWD/12345/2024",
                         help="National Council for Persons with Disabilities registration number",
-                        key="ncpwd_number"
+                        key="ncpwd_number_input"
                     )
                     
                     # Show helper text
