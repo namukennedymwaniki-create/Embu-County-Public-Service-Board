@@ -10205,7 +10205,7 @@ def data_entry():
                         st.session_state.user["username"] if "user" in st.session_state and st.session_state.user else "applicant",
                         "APPLICATION_SUBMIT",
                         record_id,
-                        f"New application submitted: {name} for {position_applied} (Ref: {advertisement_ref}) | Documents: {len(doc_paths) + len(other_doc_paths)} files"
+                        f"New application submitted: {name} for {position_applied} (Ref: {advertisement_ref}) | Documents: {len(doc_paths)} files"
                     )
                     
                     st.balloons()
