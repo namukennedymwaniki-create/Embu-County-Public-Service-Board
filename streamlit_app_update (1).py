@@ -1141,7 +1141,29 @@ def get_user_menu():
     if role == "Super Admin":
         menu.extend(["🔒 Audit Trail", "💾 Backup & Restore"])
     
-
+    # =========================================================
+    # LEAVE MANAGEMENT - Add main item AND sub-items
+    # =========================================================
+    if role in ["User", "HR", "Admin", "Super Admin"]:
+        # Main menu item
+        menu.append("🏖️ Leave Management")
+        
+        # Sub-menu items (indented with spaces)
+        menu.append("    ├─ Dashboard")
+        menu.append("    ├─ Apply for Leave")
+        menu.append("    ├─ My Leave")
+        
+        if role in ["HR", "Admin", "Super Admin"]:
+            menu.append("    ├─ Leave Approvals")
+        
+        menu.append("    ├─ Leave Calendar")
+        menu.append("    ├─ Leave Roster")
+        menu.append("    ├─ Leave Balances")
+        
+        if role in ["HR", "Admin", "Super Admin"]:
+            menu.append("    └─ Reports")
+    
+    return menu
 # =========================================================
 # DATABASE INIT
 # =========================================================
