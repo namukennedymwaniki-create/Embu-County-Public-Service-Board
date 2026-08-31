@@ -9464,7 +9464,6 @@ def data_entry():
     </div>
     """, unsafe_allow_html=True)
     
-    # ... rest of your code ...
     # =========================================================
     # CRITICAL FIX: Keep page steady on refresh
     # =========================================================
@@ -9682,7 +9681,7 @@ def data_entry():
                 st.info(f"Note: Previous application from {previous_year} will be considered")
         
         # =========================================================
-        # TAB 2: PERSONAL INFORMATION
+        # TAB 2: PERSONAL INFORMATION - UPDATED
         # =========================================================
         with tab2:
             st.markdown("### 👤 Personal Information")
@@ -9701,7 +9700,7 @@ def data_entry():
                 ], index=0)
                 
                 # =========================================================
-                # DISABILITY WITH NCPWD REGISTRATION NUMBER - FIXED
+                # DISABILITY WITH NCPWD REGISTRATION NUMBER
                 # =========================================================
                 disability = st.selectbox(
                     "♿ Disability Status", 
@@ -9745,7 +9744,6 @@ def data_entry():
                         key="ncpwd_number_input"
                     )
                     
-                    # Show helper text
                     st.caption("📌 Your NCPWD registration number helps us verify your disability status for affirmative action consideration.")
                 
                 nationality = st.selectbox("Nationality", ["Select", "Kenyan", "Other"], index=0)
@@ -9767,6 +9765,7 @@ def data_entry():
                 postal_address = st.text_input("Postal Address", placeholder="e.g., P.O. Box 123")
                 postal_code = st.text_input("Postal Code", placeholder="e.g., 60100")
                 town = st.text_input("Town/City", placeholder="Enter your town/city")
+                practicing_licence = st.text_input("Practicing Licence", placeholder="e.g., TSC No: 123456")
             
             st.markdown("---")
             st.markdown("#### 📞 Contact Information")
@@ -9781,12 +9780,12 @@ def data_entry():
                 alt_contact_mobile = st.text_input("Alternative Contact Person Mobile Number", placeholder="07XXXXXXXX")
         
         # =========================================================
-        # TAB 3: PUBLIC SERVICE - FIXED
+        # TAB 3: PUBLIC SERVICE - UPDATED
         # =========================================================
         with tab3:
             st.markdown("### 🏛️ Public Service Information")
             
-            # Initialize variables
+            # Initialize all variables
             in_public_service = st.radio(
                 "Are you currently in the Public Service?", 
                 ["No", "Yes"], 
@@ -9795,11 +9794,27 @@ def data_entry():
                 key="in_public_service_radio"
             )
             
+            # Initialize variables that will be used later
+            public_institution_category = "Select"
+            public_institution = ""
+            station = ""
+            employment_number = ""
+            present_substantive_post = ""
+            job_group = ""
+            date_of_current_appointment = None
+            upgraded_post = ""
+            effective_date_previous_appointment = None
+            secondment_organisation = ""
+            secondment_designation = ""
+            terms_of_service = "Permanent & Pensionable"
+            gross_monthly_salary = 0
+            expected_gross_monthly_salary = 0
+            terms_of_service_other = ""
+            
             if in_public_service == "Yes":
                 st.markdown("---")
                 st.markdown("#### 📋 Public Service Details")
                 
-                # Organization Details
                 col1, col2 = st.columns(2)
                 
                 with col1:
@@ -9881,8 +9896,6 @@ def data_entry():
                     )
                 
                 st.markdown("---")
-                
-                # Terms of Service
                 st.markdown("#### 📜 Terms of Service")
                 
                 terms_of_service = st.radio(
@@ -9906,8 +9919,6 @@ def data_entry():
                     terms_of_service = terms_of_service_other
                 
                 st.markdown("---")
-                
-                # Salary Information
                 st.markdown("#### 💰 Salary Information")
                 
                 col1, col2 = st.columns(2)
@@ -9917,8 +9928,7 @@ def data_entry():
                         min_value=0,
                         value=0,
                         step=1000,
-                        key="gross_monthly_salary",
-                        help="Enter your current gross monthly salary"
+                        key="gross_monthly_salary"
                     )
                 with col2:
                     expected_gross_monthly_salary = st.number_input(
@@ -9926,14 +9936,12 @@ def data_entry():
                         min_value=0,
                         value=0,
                         step=1000,
-                        key="expected_gross_monthly_salary",
-                        help="Enter your expected gross monthly salary"
+                        key="expected_gross_monthly_salary"
                     )
                 
-                st.markdown("---")
-                
-                # Display summary if any data entered
+                # Display summary
                 if public_institution or present_substantive_post:
+                    st.markdown("---")
                     st.markdown("#### 📊 Public Service Summary")
                     st.info(f"""
                     **Institution:** {public_institution or 'Not specified'}
@@ -9976,7 +9984,7 @@ def data_entry():
                 st.warning("⚠️ Please provide details in the remarks section.")
         
         # =========================================================
-        # TAB 4: EDUCATION
+        # TAB 4: EDUCATION - (unchanged, keep your existing code)
         # =========================================================
         with tab4:
             st.markdown("### 📚 Education & Qualifications")
@@ -10088,7 +10096,7 @@ def data_entry():
                 st.info("No professional memberships added yet. Use the '+' button below.")
         
         # =========================================================
-        # TAB 5: WORK EXPERIENCE
+        # TAB 5: WORK EXPERIENCE - (unchanged)
         # =========================================================
         with tab5:
             st.markdown("### 💼 Work Experience")
@@ -10105,10 +10113,7 @@ def data_entry():
                         with col2:
                             exp['job_scale'] = st.text_input("Job Scale/Grade", value=exp.get('job_scale', ''), key=f"work_scale_{idx}")
                             exp['salary'] = st.number_input("Gross Monthly Salary (Kshs.)", min_value=0, value=exp.get('salary', 0), step=1000, key=f"work_salary_{idx}")
-                            # =========================================================
-                            # FIXED DATE INPUTS - Allow any year
-                            # =========================================================
-                            # Start Date - allow any year from 1900 to 2100
+                            
                             start_date_val = exp.get('start_date', None)
                             if start_date_val is None or start_date_val == '':
                                 start_date_val = datetime.now().date()
@@ -10121,7 +10126,6 @@ def data_entry():
                                 key=f"work_start_{idx}"
                             )
                             
-                            # End Date - allow any year from 1900 to 2100
                             end_date_val = exp.get('end_date', None)
                             if end_date_val is None or end_date_val == '':
                                 end_date_val = datetime.now().date()
@@ -10146,7 +10150,7 @@ def data_entry():
                 st.info("No work experience added yet. Use the '+' button below.")
         
         # =========================================================
-        # TAB 6: REFEREES
+        # TAB 6: REFEREES - (unchanged)
         # =========================================================
         with tab6:
             st.markdown("### 👥 Referees")
@@ -10199,7 +10203,7 @@ def data_entry():
                 referee3_period = st.text_input("Period known (e.g., 5 years)", placeholder="e.g., 5 years", key="ref3_period")
         
         # =========================================================
-        # TAB 7: DOCUMENTS
+        # TAB 7: DOCUMENTS - (unchanged)
         # =========================================================
         with tab7:
             st.markdown("### 📎 Document Upload")
@@ -10266,7 +10270,7 @@ def data_entry():
         submitted = st.form_submit_button("📤 Submit Application", use_container_width=True, type="primary")
         
         # =========================================================
-        # PROCESS SUBMISSION
+        # PROCESS SUBMISSION - UPDATED WITH ALL NEW FIELDS
         # =========================================================
         if submitted:
             errors = []
@@ -10312,6 +10316,7 @@ def data_entry():
                     KRA PIN: {kra_pin if kra_pin else 'N/A'}
                     Ethnicity: {ethnicity if ethnicity != 'Select Ethnicity' else 'N/A'}
                     Disability: {disability if disability != 'None' else 'N/A'}
+                    NCPWD Number: {ncpwd_number if ncpwd_number else 'N/A'}
                     Nationality: {nationality if nationality != 'Select' else 'N/A'}
                     Home County: {home_county if home_county else 'N/A'}
                     Home Constituency: {home_constituency if home_constituency else 'N/A'}
@@ -10322,9 +10327,24 @@ def data_entry():
                     Town: {town if town else 'N/A'}
                     Phone: {contact if contact else 'N/A'}
                     Email: {email if email else 'N/A'}
+                    Practicing Licence: {practicing_licence if practicing_licence else 'N/A'}
                     
                     === PUBLIC SERVICE ===
                     In Public Service: {in_public_service}
+                    Institution Category: {public_institution_category if public_institution_category != 'Select' else 'N/A'}
+                    Institution: {public_institution if public_institution else 'N/A'}
+                    Station: {station if station else 'N/A'}
+                    Employment No.: {employment_number if employment_number else 'N/A'}
+                    Present Substantive Post: {present_substantive_post if present_substantive_post else 'N/A'}
+                    Job Group: {job_group if job_group else 'N/A'}
+                    Date of Current Appointment: {date_of_current_appointment.strftime('%Y-%m-%d') if date_of_current_appointment else 'N/A'}
+                    Upgraded Post: {upgraded_post if upgraded_post else 'N/A'}
+                    Effective Date Previous Appointment: {effective_date_previous_appointment.strftime('%Y-%m-%d') if effective_date_previous_appointment else 'N/A'}
+                    Secondment Organisation: {secondment_organisation if secondment_organisation else 'N/A'}
+                    Secondment Designation: {secondment_designation if secondment_designation else 'N/A'}
+                    Terms of Service: {terms_of_service if terms_of_service else 'N/A'}
+                    Gross Monthly Salary: {f"Kshs. {gross_monthly_salary:,.0f}" if gross_monthly_salary > 0 else 'N/A'}
+                    Expected Gross Monthly Salary: {f"Kshs. {expected_gross_monthly_salary:,.0f}" if expected_gross_monthly_salary > 0 else 'N/A'}
                     
                     === LEGAL DECLARATIONS ===
                     Convicted: {convicted}
@@ -10381,15 +10401,11 @@ def data_entry():
                     for doc_type, file_obj in doc_mapping.items():
                         if file_obj is not None:
                             try:
-                                # Read the file data as bytes
                                 file_data = file_obj.read()
                                 file_size = len(file_data)
                                 filename = file_obj.name
-                                
-                                print(f"📄 Read {doc_type}: {filename} ({file_size} bytes)")
-                                
                                 temp_files[doc_type] = {
-                                    'data': file_data,  # Store raw bytes
+                                    'data': file_data,
                                     'filename': filename,
                                     'size': file_size
                                 }
@@ -10403,11 +10419,8 @@ def data_entry():
                                 file_data = doc_file.read()
                                 file_size = len(file_data)
                                 filename = doc_file.name
-                                
-                                print(f"📄 Read other_doc_{idx+1}: {filename} ({file_size} bytes)")
-                                
                                 temp_other_files.append({
-                                    'data': file_data,  # Store raw bytes
+                                    'data': file_data,
                                     'filename': filename,
                                     'size': file_size,
                                     'index': idx + 1
@@ -10416,7 +10429,7 @@ def data_entry():
                                 print(f"❌ Error reading other document {idx+1}: {e}")
 
                     # =========================================================
-                    # INSERT INTO STAFF TABLE
+                    # INSERT INTO STAFF TABLE - UPDATED WITH ALL NEW FIELDS
                     # =========================================================
                     conn = get_conn()
                     c = conn.cursor()
@@ -10432,7 +10445,14 @@ def data_entry():
                                 application_status, position_applied, application_date, 
                                 email, kcse_grade, graduation_year, 
                                 referee1_name, referee1_contact, referee2_name, referee2_contact,
-                                documents_ready, declaration_accepted, advertisement_ref
+                                documents_ready, declaration_accepted, advertisement_ref,
+                                ncpwd_number, practicing_licence,
+                                in_public_service, public_institution_category, public_institution, 
+                                station, employment_number, present_substantive_post, 
+                                job_group, date_of_current_appointment, upgraded_post,
+                                effective_date_previous_appointment, secondment_organisation,
+                                secondment_designation, terms_of_service, 
+                                gross_monthly_salary, expected_gross_monthly_salary
                             ) VALUES (
                                 %s, %s, %s, %s, %s, %s,
                                 %s, %s, %s, %s, %s,
@@ -10440,6 +10460,12 @@ def data_entry():
                                 %s, %s, %s,
                                 %s, %s, %s,
                                 %s, %s, %s, %s,
+                                %s, %s, %s,
+                                %s, %s,
+                                %s, %s, %s,
+                                %s, %s, %s,
+                                %s, %s, %s,
+                                %s, %s,
                                 %s, %s, %s
                             ) RETURNING id
                         """, (
@@ -10470,7 +10496,24 @@ def data_entry():
                             referee2_mobile if referee2_mobile else '',
                             'Yes',
                             'Yes' if declaration else 'No',
-                            advertisement_ref
+                            advertisement_ref,
+                            ncpwd_number if ncpwd_number else None,
+                            practicing_licence if practicing_licence else None,
+                            'Yes' if in_public_service == "Yes" else 'No',
+                            public_institution_category if public_institution_category != 'Select' else None,
+                            public_institution if public_institution else None,
+                            station if station else None,
+                            employment_number if employment_number else None,
+                            present_substantive_post if present_substantive_post else None,
+                            job_group if job_group else None,
+                            date_of_current_appointment.strftime("%Y-%m-%d") if date_of_current_appointment else None,
+                            upgraded_post if upgraded_post else None,
+                            effective_date_previous_appointment.strftime("%Y-%m-%d") if effective_date_previous_appointment else None,
+                            secondment_organisation if secondment_organisation else None,
+                            secondment_designation if secondment_designation else None,
+                            terms_of_service if terms_of_service else None,
+                            gross_monthly_salary if gross_monthly_salary else 0,
+                            expected_gross_monthly_salary if expected_gross_monthly_salary else 0
                         ))
                         record_id = c.fetchone()[0]
                     else:
@@ -10483,7 +10526,14 @@ def data_entry():
                                 application_status, position_applied, application_date, 
                                 email, kcse_grade, graduation_year, 
                                 referee1_name, referee1_contact, referee2_name, referee2_contact,
-                                documents_ready, declaration_accepted, advertisement_ref
+                                documents_ready, declaration_accepted, advertisement_ref,
+                                ncpwd_number, practicing_licence,
+                                in_public_service, public_institution_category, public_institution, 
+                                station, employment_number, present_substantive_post, 
+                                job_group, date_of_current_appointment, upgraded_post,
+                                effective_date_previous_appointment, secondment_organisation,
+                                secondment_designation, terms_of_service, 
+                                gross_monthly_salary, expected_gross_monthly_salary
                             ) VALUES (
                                 ?, ?, ?, ?, ?, ?,
                                 ?, ?, ?, ?, ?,
@@ -10491,6 +10541,12 @@ def data_entry():
                                 ?, ?, ?,
                                 ?, ?, ?,
                                 ?, ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?,
+                                ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?,
                                 ?, ?, ?
                             )
                         """, (
@@ -10521,7 +10577,24 @@ def data_entry():
                             referee2_mobile if referee2_mobile else '',
                             'Yes',
                             'Yes' if declaration else 'No',
-                            advertisement_ref
+                            advertisement_ref,
+                            ncpwd_number if ncpwd_number else None,
+                            practicing_licence if practicing_licence else None,
+                            'Yes' if in_public_service == "Yes" else 'No',
+                            public_institution_category if public_institution_category != 'Select' else None,
+                            public_institution if public_institution else None,
+                            station if station else None,
+                            employment_number if employment_number else None,
+                            present_substantive_post if present_substantive_post else None,
+                            job_group if job_group else None,
+                            date_of_current_appointment.strftime("%Y-%m-%d") if date_of_current_appointment else None,
+                            upgraded_post if upgraded_post else None,
+                            effective_date_previous_appointment.strftime("%Y-%m-%d") if effective_date_previous_appointment else None,
+                            secondment_organisation if secondment_organisation else None,
+                            secondment_designation if secondment_designation else None,
+                            terms_of_service if terms_of_service else None,
+                            gross_monthly_salary if gross_monthly_salary else 0,
+                            expected_gross_monthly_salary if expected_gross_monthly_salary else 0
                         ))
                         record_id = c.lastrowid
 
@@ -10534,19 +10607,16 @@ def data_entry():
                     gcs_upload_success = 0
                     gcs_upload_failed = 0
 
-                    # Upload main documents - create BytesIO objects from the raw bytes
+                    # Upload main documents
                     for doc_type, file_info in temp_files.items():
                         try:
-                            # Create a file-like object from the stored bytes
                             file_obj = BytesIO(file_info['data'])
                             file_obj.name = file_info['filename']
-                            
-                            print(f"📤 Uploading {doc_type} to GCS for applicant {record_id}...")
                             
                             result = save_document_to_gcs(
                                 applicant_id=record_id,
                                 doc_type=doc_type,
-                                file_obj=file_obj,  # Now passing a file-like object
+                                file_obj=file_obj,
                                 applicant_name=name
                             )
                             
@@ -10554,23 +10624,18 @@ def data_entry():
                                 doc_paths[doc_type] = result
                                 uploaded_docs_summary += f"✅ {doc_type}: {result['filename']} ({result['size']} bytes) - [GCS]\n"
                                 gcs_upload_success += 1
-                                print(f"✅ Uploaded {doc_type}")
                             else:
                                 uploaded_docs_summary += f"❌ {doc_type}: Failed to upload to GCS\n"
                                 gcs_upload_failed += 1
-                                print(f"❌ Failed to upload {doc_type}")
                         except Exception as e:
                             uploaded_docs_summary += f"❌ {doc_type}: Error - {str(e)}\n"
                             gcs_upload_failed += 1
-                            print(f"❌ Error uploading {doc_type}: {e}")
 
                     # Upload other documents
                     for file_info in temp_other_files:
                         try:
                             file_obj = BytesIO(file_info['data'])
                             file_obj.name = file_info['filename']
-                            
-                            print(f"📤 Uploading other_doc_{file_info['index']} to GCS...")
                             
                             result = save_document_to_gcs(
                                 applicant_id=record_id,
@@ -10659,7 +10724,6 @@ def data_entry():
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             if st.button("📝 Start New Application", use_container_width=True, type="primary"):
-                # Clear all session state variables
                 st.session_state.academic_qualifications = []
                 st.session_state.professional_qualifications = []
                 st.session_state.other_courses = []
@@ -10667,6 +10731,7 @@ def data_entry():
                 st.session_state.work_experience = []
                 st.session_state.form_submitted = False
                 st.rerun()
+    
     # =====================================================
     # BUTTONS OUTSIDE THE FORM (For adding/removing items)
     # =====================================================
