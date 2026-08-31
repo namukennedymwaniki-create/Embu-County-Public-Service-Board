@@ -127,7 +127,6 @@ ROLE_PERMISSIONS = {
             "⭐ Shortlist Management",
             "📊 Scoresheet",
             "👔 HR Functions",
-            "🏖️ Leave Management",
             "📥 Import Excel",
             "📋 Records",
             "📈 Reports",
@@ -146,7 +145,7 @@ ROLE_PERMISSIONS = {
             "import_staff", "process_promotions", "manage_redesignation", "manage_contracts",
             "manage_translation", "manage_salary", "manage_leave", "manage_confirmation",
             "manage_discipline", "manage_acting", "view_reports", "export_data",
-            "manage_users", "view_audit", "backup_restore", "system_settings", "test_data",
+            "manage_users", "view_audit","test_gcs_connection", "backup_restore", "system_settings", "test_data",
             "view_scoresheet", "edit_applications", "view_all_reports", "review_applicants"
         ]
     },
@@ -160,7 +159,6 @@ ROLE_PERMISSIONS = {
             "⭐ Shortlist Management",
             "📊 Scoresheet",
             "👔 HR Functions",
-            "🏖️ Leave Management",
             "📥 Import Excel",
             "📋 Records",
             "📈 Reports",
@@ -172,7 +170,7 @@ ROLE_PERMISSIONS = {
             
         ],
         "permissions": [
-            "view_dashboard", "view_ai_kb", "upload_ai_documents", "view_staff", "add_staff", "edit_staff", "delete_staff",
+            "view_dashboard", "test_gcs_connection", "view_ai_kb", "upload_ai_documents", "view_staff", "add_staff", "edit_staff", "delete_staff",
             "import_staff", "process_promotions", "manage_redesignation", "manage_contracts",
             "manage_translation", "manage_salary", "manage_leave", "manage_confirmation",
             "manage_discipline", "manage_acting", "view_reports", "export_data",
