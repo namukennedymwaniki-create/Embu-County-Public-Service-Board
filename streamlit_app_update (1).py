@@ -8270,9 +8270,6 @@ def dashboard():
         st.markdown("</div>", unsafe_allow_html=True)
     
     conn.close()
-# =========================================================
-# APPLICANT PROFILE - WITH AUTO REFRESH
-# =========================================================
 def applicant_profile():
     st.markdown("""
     <div class="main-header">
@@ -8307,11 +8304,10 @@ def applicant_profile():
             st.session_state.edit_staff_id = None
         
         # =========================================================
-        # UPGRADED SEARCH SECTION - Search by Name or ID Number
+        # SEARCH SECTION
         # =========================================================
         st.subheader("🔍 Search Staff")
         
-        # Create search options
         col1, col2, col3 = st.columns([2, 2, 1])
         
         with col1:
@@ -8340,7 +8336,7 @@ def applicant_profile():
                 filtered_df = df[df['name'].str.lower().str.contains(search_term_lower, na=False)]
             elif search_type == "ID Number":
                 filtered_df = df[df['id_number'].str.contains(search_term, na=False)]
-            else:  # Both
+            else:
                 filtered_df = df[
                     df['name'].str.lower().str.contains(search_term_lower, na=False) |
                     df['id_number'].str.contains(search_term, na=False)
@@ -8352,7 +8348,6 @@ def applicant_profile():
         else:
             filtered_df = df
         
-        # Display search results count
         if not search_term:
             st.info(f"📊 Showing all {len(filtered_df)} staff members")
         else:
@@ -8377,8 +8372,6 @@ def applicant_profile():
                 else:
                     selected_staff = filtered_df.iloc[0]['name'] if not filtered_df.empty else None
             
-            # REMOVED: Refresh button - now automatic
-            
             # Get full details
             if selected_staff:
                 staff_data = pd.read_sql(f"SELECT * FROM staff WHERE name = '{selected_staff}'", conn)
@@ -8389,9 +8382,8 @@ def applicant_profile():
                 staff = staff_data.iloc[0]
                 staff_id = staff['id']
                 
-                # Helper function to convert numpy types to Python native types
+                # Helper function
                 def to_native(val):
-                    """Convert numpy types to Python native types for database"""
                     if val is None or pd.isna(val):
                         return None
                     if isinstance(val, (np.int64, np.int32)):
@@ -8406,7 +8398,9 @@ def applicant_profile():
                 current_year = datetime.now().year
                 age = current_year - staff['yob'] if staff['yob'] else None
                 
-                # Display profile in columns
+                # =========================================================
+                # DISPLAY PROFILE
+                # =========================================================
                 col1, col2 = st.columns([1, 2])
                 
                 with col1:
@@ -8440,27 +8434,28 @@ def applicant_profile():
                         <table style="width: 100%;">
                     """, unsafe_allow_html=True)
                     
+                    # Use .get() to handle missing columns gracefully
                     details = {
-                        "Gender": staff['gender'] or "Not specified",
-                        "Year of Birth": staff['yob'] or "Not specified",
+                        "Gender": staff.get('gender') or "Not specified",
+                        "Year of Birth": staff.get('yob') or "Not specified",
                         "Age": f"{age} years" if age else "N/A",
-                        "Ethnicity": staff['ethnicity'] or "Not specified",
-                        "Disability": staff['disability'] or "None",
-                        "Contact": staff['contact'] or "Not provided",
-                        "Email": staff['email'] or "Not provided",
-                        "KCSE Year": staff['kcse'] or "Not specified",
-                        "KCSE Grade": staff['kcse_grade'] or "Not specified",
-                        "Qualifications": staff['qualifications'] or "Not specified",
-                        "Institution": staff['institution'] or "Not specified",
-                        "Graduation Year": staff['graduation_year'] or "Not specified",
-                        "Professional Body": staff['professional_body'] or "Not specified",
-                        "Practicing Licence": staff['practicing_licence'] or "Not specified",
-                        "Experience Years": staff['experience_years'] or "Not specified",
-                        "Current Employer": staff['current_employer'] or "Not specified",
-                        "Sub-County": staff['subcounty'] or "Not specified",
-                        "Ward": staff['ward'] or "Not specified",
-                        "Experience": staff['experience'] or "Not specified",
-                        "Remarks": staff['remarks'] or "None"
+                        "Ethnicity": staff.get('ethnicity') or "Not specified",
+                        "Disability": staff.get('disability') or "None",
+                        "Contact": staff.get('contact') or "Not provided",
+                        "Email": staff.get('email') or "Not provided",
+                        "KCSE Year": staff.get('kcse') or "Not specified",
+                        "KCSE Grade": staff.get('kcse_grade') or "Not specified",
+                        "Qualifications": staff.get('qualifications') or "Not specified",
+                        "Institution": staff.get('institution') or "Not specified",
+                        "Graduation Year": staff.get('graduation_year') or "Not specified",
+                        "Professional Body": staff.get('professional_body') or "Not specified",
+                        "Practicing Licence": staff.get('practicing_licence') if 'practicing_licence' in staff.index else "Not specified",
+                        "Experience Years": staff.get('experience_years') or "Not specified",
+                        "Current Employer": staff.get('current_employer') or "Not specified",
+                        "Sub-County": staff.get('subcounty') or "Not specified",
+                        "Ward": staff.get('ward') or "Not specified",
+                        "Experience": staff.get('experience') or "Not specified",
+                        "Remarks": staff.get('remarks') or "None"
                     }
                     
                     for key, value in details.items():
@@ -8518,47 +8513,47 @@ def applicant_profile():
                                     <table>
                                         <tr><td class="label">Name:</td><td>{staff['name']}</td></tr>
                                         <tr><td class="label">ID Number:</td><td>{staff['id_number']}</td></tr>
-                                        <tr><td class="label">Gender:</td><td>{staff['gender'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Year of Birth:</td><td>{staff['yob'] or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Gender:</td><td>{staff.get('gender') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Year of Birth:</td><td>{staff.get('yob') or 'Not specified'}</td></tr>
                                         <tr><td class="label">Age:</td><td>{age if age else 'N/A'} years</td></tr>
-                                        <tr><td class="label">Ethnicity:</td><td>{staff['ethnicity'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Disability:</td><td>{staff['disability'] or 'None'}</td></tr>
-                                        <tr><td class="label">Contact:</td><td>{staff['contact'] or 'Not provided'}</td></tr>
-                                        <tr><td class="label">Email:</td><td>{staff['email'] or 'Not provided'}</td></tr>
+                                        <tr><td class="label">Ethnicity:</td><td>{staff.get('ethnicity') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Disability:</td><td>{staff.get('disability') or 'None'}</td></tr>
+                                        <tr><td class="label">Contact:</td><td>{staff.get('contact') or 'Not provided'}</td></tr>
+                                        <tr><td class="label">Email:</td><td>{staff.get('email') or 'Not provided'}</td></tr>
                                     </table>
                                 </div>
                                 
                                 <div class="section">
                                     <h2>Education & Qualifications</h2>
                                     <table>
-                                        <tr><td class="label">KCSE Year:</td><td>{staff['kcse'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">KCSE Grade:</td><td>{staff['kcse_grade'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Qualifications:</td><td>{staff['qualifications'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Institution:</td><td>{staff['institution'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Graduation Year:</td><td>{staff['graduation_year'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Professional Body:</td><td>{staff['professional_body'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Practicing Licence:</td><td>{staff['practicing_licence'] or 'Not specified'}</td></tr>
+                                        <tr><td class="label">KCSE Year:</td><td>{staff.get('kcse') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">KCSE Grade:</td><td>{staff.get('kcse_grade') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Qualifications:</td><td>{staff.get('qualifications') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Institution:</td><td>{staff.get('institution') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Graduation Year:</td><td>{staff.get('graduation_year') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Professional Body:</td><td>{staff.get('professional_body') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Practicing Licence:</td><td>{staff.get('practicing_licence') if 'practicing_licence' in staff.index else 'Not specified'}</td></tr>
                                     </table>
                                 </div>
                                 
                                 <div class="section">
                                     <h2>Work Experience</h2>
                                     <table>
-                                        <tr><td class="label">Experience Years:</td><td>{staff['experience_years'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Current Employer:</td><td>{staff['current_employer'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Experience:</td><td>{staff['experience'] or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Experience Years:</td><td>{staff.get('experience_years') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Current Employer:</td><td>{staff.get('current_employer') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Experience:</td><td>{staff.get('experience') or 'Not specified'}</td></tr>
                                     </table>
                                 </div>
                                 
                                 <div class="section">
                                     <h2>Location & Application</h2>
                                     <table>
-                                        <tr><td class="label">Sub-County:</td><td>{staff['subcounty'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Ward:</td><td>{staff['ward'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Position Applied:</td><td>{staff['position_applied'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Application Status:</td><td>{staff['application_status'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Advertisement Ref:</td><td>{staff['advertisement_ref'] or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Application Date:</td><td>{staff['application_date'] or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Sub-County:</td><td>{staff.get('subcounty') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Ward:</td><td>{staff.get('ward') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Position Applied:</td><td>{staff.get('position_applied') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Application Status:</td><td>{staff.get('application_status') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Advertisement Ref:</td><td>{staff.get('advertisement_ref') or 'Not specified'}</td></tr>
+                                        <tr><td class="label">Application Date:</td><td>{staff.get('application_date') or 'Not specified'}</td></tr>
                                     </table>
                                 </div>
                                 
@@ -8595,11 +8590,11 @@ def applicant_profile():
                 
                 with col4:
                     if st.button("📞 Contact Info", use_container_width=True):
-                        if staff['contact'] or staff['email']:
+                        if staff.get('contact') or staff.get('email'):
                             contact_info = ""
-                            if staff['contact']:
+                            if staff.get('contact'):
                                 contact_info += f"📱 Phone: {staff['contact']}\n"
-                            if staff['email']:
+                            if staff.get('email'):
                                 contact_info += f"✉️ Email: {staff['email']}\n"
                             st.success(f"📋 Contact Information:\n{contact_info}")
                         else:
@@ -8616,22 +8611,22 @@ def applicant_profile():
                         col1, col2 = st.columns(2)
                         
                         with col1:
-                            edit_name = st.text_input("Full Name", value=staff['name'] or "")
-                            edit_id_number = st.text_input("ID Number", value=staff['id_number'] or "")
+                            edit_name = st.text_input("Full Name", value=staff.get('name') or "")
+                            edit_id_number = st.text_input("ID Number", value=staff.get('id_number') or "")
                             edit_gender = st.selectbox("Gender", ["", "Male", "Female"], 
-                                                       index=0 if not staff['gender'] else (1 if staff['gender'] == "Male" else 2))
+                                                       index=0 if not staff.get('gender') else (1 if staff.get('gender') == "Male" else 2))
                             edit_yob = st.number_input("Year of Birth", min_value=1900, max_value=current_year, 
-                                                       value=int(staff['yob']) if staff['yob'] else 2000)
-                            edit_ethnicity = st.text_input("Ethnicity", value=staff['ethnicity'] or "")
-                            edit_disability = st.text_input("Disability (Yes/No)", value=staff['disability'] or "")
+                                                       value=int(staff.get('yob')) if staff.get('yob') else 2000)
+                            edit_ethnicity = st.text_input("Ethnicity", value=staff.get('ethnicity') or "")
+                            edit_disability = st.text_input("Disability (Yes/No)", value=staff.get('disability') or "")
                         
                         with col2:
-                            edit_contact = st.text_input("Contact Number", value=staff['contact'] or "")
-                            edit_email = st.text_input("Email", value=staff['email'] or "")
-                            edit_subcounty = st.text_input("Sub-County", value=staff['subcounty'] or "")
-                            edit_ward = st.text_input("Ward", value=staff['ward'] or "")
-                            edit_qualifications = st.text_area("Qualifications", value=staff['qualifications'] or "", height=100)
-                            edit_remarks = st.text_area("Remarks", value=staff['remarks'] or "", height=80)
+                            edit_contact = st.text_input("Contact Number", value=staff.get('contact') or "")
+                            edit_email = st.text_input("Email", value=staff.get('email') or "")
+                            edit_subcounty = st.text_input("Sub-County", value=staff.get('subcounty') or "")
+                            edit_ward = st.text_input("Ward", value=staff.get('ward') or "")
+                            edit_qualifications = st.text_area("Qualifications", value=staff.get('qualifications') or "", height=100)
+                            edit_remarks = st.text_area("Remarks", value=staff.get('remarks') or "", height=80)
                         
                         st.markdown("---")
                         
@@ -8646,7 +8641,6 @@ def applicant_profile():
                                 update_conn = get_conn()
                                 cursor = update_conn.cursor()
                                 
-                                # Convert all values to Python native types
                                 values = (
                                     str(edit_name) if edit_name else None,
                                     str(edit_gender) if edit_gender else None,
@@ -8702,6 +8696,133 @@ def applicant_profile():
                             st.session_state.edit_mode = False
                             st.session_state.edit_staff_id = None
                             st.rerun()
+                
+                # =========================================================
+                # 📄 UPLOADED DOCUMENTS SECTION - GCS VERSION
+                # =========================================================
+                st.markdown("---")
+                st.subheader("📄 Uploaded Documents (Google Cloud Storage)")
+
+                try:
+                    # First check if the table exists
+                    if is_cloud:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            SELECT EXISTS (
+                                SELECT FROM information_schema.tables 
+                                WHERE table_name = 'applicant_documents'
+                            )
+                        """)
+                        table_exists = cursor.fetchone()[0]
+                    else:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='applicant_documents'")
+                        table_exists = cursor.fetchone() is not None
+                    
+                    if not table_exists:
+                        st.warning("⚠️ Documents table not configured yet.")
+                    else:
+                        # Convert staff_id to Python int
+                        staff_id_int = int(staff_id) if staff_id else None
+                        
+                        # Get documents from database
+                        if is_cloud:
+                            docs = pd.read_sql(
+                                "SELECT * FROM applicant_documents WHERE applicant_id = %s ORDER BY uploaded_at DESC",
+                                conn,
+                                params=(staff_id_int,)
+                            )
+                        else:
+                            docs = pd.read_sql(
+                                "SELECT * FROM applicant_documents WHERE applicant_id = ? ORDER BY uploaded_at DESC",
+                                conn,
+                                params=(staff_id_int,)
+                            )
+                        
+                        # If no documents found, search by name/id_number
+                        if docs.empty:
+                            applicant_name = str(staff.get('name', ''))
+                            applicant_id_number = str(staff.get('id_number', ''))
+                            
+                            if is_cloud:
+                                docs = pd.read_sql(
+                                    """SELECT * FROM applicant_documents 
+                                    WHERE applicant_name = %s OR id_number = %s 
+                                    ORDER BY uploaded_at DESC""",
+                                    conn,
+                                    params=(applicant_name, applicant_id_number)
+                                )
+                            else:
+                                docs = pd.read_sql(
+                                    """SELECT * FROM applicant_documents 
+                                    WHERE applicant_name = ? OR id_number = ? 
+                                    ORDER BY uploaded_at DESC""",
+                                    conn,
+                                    params=(applicant_name, applicant_id_number)
+                                )
+                        
+                        # Display documents
+                        if docs.empty:
+                            st.info("📭 No documents uploaded for this applicant")
+                        else:
+                            st.success(f"📎 {len(docs)} document(s) uploaded to Google Cloud Storage")
+                            
+                            # Get GCS client
+                            gcs_client = get_gcs_client()
+                            bucket_name = st.secrets.get("GCS_BUCKET_NAME")
+                            
+                            for idx, doc in docs.iterrows():
+                                with st.expander(f"📄 {doc['doc_type']} - {doc['filename']}"):
+                                    col1, col2 = st.columns(2)
+                                    with col1:
+                                        st.write(f"**File:** {doc['filename']}")
+                                        st.write(f"**Type:** {doc['doc_type']}")
+                                        st.write(f"**Size:** {doc['file_size']} bytes")
+                                        st.write(f"**Uploaded:** {doc['uploaded_at']}")
+                                        st.write(f"**Storage:** ☁️ Google Cloud Storage")
+                                    with col2:
+                                        try:
+                                            if gcs_client and bucket_name:
+                                                bucket = gcs_client.bucket(bucket_name)
+                                                blob = bucket.blob(doc['file_path'])
+                                                
+                                                if blob.exists():
+                                                    st.success("✅ File available in GCS")
+                                                    
+                                                    # Show public URL
+                                                    st.write(f"**Public URL:**")
+                                                    st.code(blob.public_url)
+                                                    
+                                                    # Direct link
+                                                    st.markdown(f"[🔗 View Document]({blob.public_url})", unsafe_allow_html=True)
+                                                    
+                                                    # Download button
+                                                    file_data = blob.download_as_bytes()
+                                                    st.download_button(
+                                                        label="📥 Download",
+                                                        data=file_data,
+                                                        file_name=doc['filename'],
+                                                        mime="application/octet-stream",
+                                                        key=f"download_{doc['id']}",
+                                                        use_container_width=True
+                                                    )
+                                                    
+                                                    # Preview image
+                                                    if doc['filename'].lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                                                        st.image(file_data, caption=doc['filename'], use_container_width=True)
+                                                else:
+                                                    st.error("❌ File not found in cloud storage")
+                                                    st.caption(f"Storage path: `{doc['file_path']}`")
+                                            else:
+                                                st.error("❌ Could not connect to cloud storage")
+                                        except Exception as e:
+                                            st.error(f"Error accessing file: {e}")
+                                            st.caption(f"Storage path: `{doc['file_path']}`")
+
+                except Exception as e:
+                    st.error(f"Error loading documents: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
                 
                 # =========================================================
                 # EXPORT SECTION
