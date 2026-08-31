@@ -8761,12 +8761,427 @@ def applicant_profile():
 # APPLICANT REGISTRATION MODULE
 # =====================================================
 
+# =========================================================
+# DOCUMENT STORAGE FUNCTIONS - ADD THIS SECTION
+# =========================================================
+
+import os
+import uuid
+from datetime import datetime
+
+def save_document_locally(file_data, filename, applicant_name, doc_type):
+    """Save document to local server storage"""
+    try:
+        # Create upload directory
+        upload_dir = "uploads/applicants"
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Create applicant folder with timestamp
+        safe_name = applicant_name.replace(" ", "_").replace("/", "_")[:30]
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        applicant_dir = f"{upload_dir}/{safe_name}_{timestamp}"
+        os.makedirs(applicant_dir, exist_ok=True)
+        
+        # Save file
+        extension = filename.split('.')[-1] if '.' in filename else 'pdf'
+        file_path = f"{applicant_dir}/{doc_type}.{extension}"
+        
+        with open(file_path, 'wb') as f:
+            f.write(file_data)
+        
+        return file_path
+        
+    except Exception as e:
+        print(f"Save error: {e}")
+        return None
+
+def save_document_metadata(conn, applicant_id, doc_type, filename, file_path, file_size, applicant_name=None, id_number=None):
+    """Save document metadata to database"""
+    cursor = conn.cursor()
+    is_cloud = st.secrets.get("DATABASE_URL") is not None
+    
+    try:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # If applicant_name and id_number are not provided, fetch them from staff table
+        if applicant_name is None or id_number is None:
+            cursor.execute("SELECT name, id_number FROM staff WHERE id = %s", (applicant_id,))
+            staff_data = cursor.fetchone()
+            if staff_data:
+                applicant_name = staff_data[0]
+                id_number = staff_data[1]
+        
+        if is_cloud:
+            cursor.execute("""
+                INSERT INTO applicant_documents (
+                    applicant_id, applicant_name, id_number, doc_type, 
+                    filename, file_path, file_size, uploaded_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (applicant_id, applicant_name, id_number, doc_type, filename, file_path, file_size, now))
+        else:
+            cursor.execute("""
+                INSERT INTO applicant_documents (
+                    applicant_id, applicant_name, id_number, doc_type, 
+                    filename, file_path, file_size, uploaded_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (applicant_id, applicant_name, id_number, doc_type, filename, file_path, file_size, now))
+        
+        return True
+    except Exception as e:
+        print(f"Metadata save error: {e}")
+        return False
+
+# =========================================================
+# CREATE DOCUMENTS TABLE
+# =========================================================
+
+def create_documents_table():
+    """Create table for storing document metadata"""
+    conn = get_conn()
+    if conn is None:
+        print("❌ Cannot connect to database")
+        return
+    
+    c = conn.cursor()
+    is_cloud = st.secrets.get("DATABASE_URL") is not None
+    
+    try:
+        if is_cloud:
+            # PostgreSQL syntax
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS applicant_documents (
+                    id SERIAL PRIMARY KEY,
+                    applicant_id INTEGER REFERENCES staff(id) ON DELETE CASCADE,
+                    doc_type TEXT,
+                    filename TEXT,
+                    file_path TEXT,
+                    file_size INTEGER,
+                    uploaded_at TEXT,
+                    is_active INTEGER DEFAULT 1
+                )
+            """)
+            # Add index for faster queries
+            c.execute("CREATE INDEX IF NOT EXISTS idx_docs_applicant ON applicant_documents(applicant_id)")
+        else:
+            # SQLite syntax
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS applicant_documents (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    applicant_id INTEGER,
+                    doc_type TEXT,
+                    filename TEXT,
+                    file_path TEXT,
+                    file_size INTEGER,
+                    uploaded_at TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    FOREIGN KEY (applicant_id) REFERENCES staff(id) ON DELETE CASCADE
+                )
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_docs_applicant ON applicant_documents(applicant_id)")
+        
+        conn.commit()
+        print("✅ Documents table created successfully")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error creating documents table: {e}")
+        return False
+    finally:
+        conn.close()
+        
 def data_entry():
     """Professional Applicant Registration Form - 7 Tabs"""
     
+    # =========================================================
+    # COMPLETE FIX - TABS + INPUT FIELDS VISIBLE IN BOTH MODES
+    # =========================================================
+    st.markdown("""
+    <style>
+    /* =========================================================
+       TAB STYLING - VISIBLE IN BOTH MODES
+       ========================================================= */
+    
+    /* Tab list container */
+    .stTabs [data-baseweb="tab-list"] {
+        background: linear-gradient(135deg, #1a2332 0%, #0f172a 100%) !important;
+        border-radius: 12px !important;
+        padding: 8px !important;
+        gap: 8px !important;
+        border: 1px solid rgba(59, 130, 246, 0.2) !important;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2) !important;
+        flex-wrap: wrap !important;
+    }
+    
+    /* Individual tab - VISIBLE */
+    .stTabs [data-baseweb="tab"] {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border-radius: 8px !important;
+        padding: 10px 22px !important;
+        font-weight: 500 !important;
+        font-size: 14px !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        transition: all 0.3s ease !important;
+        min-height: 44px !important;
+        height: auto !important;
+        cursor: pointer !important;
+    }
+    
+    /* Tab text - WHITE so it's visible */
+    .stTabs [data-baseweb="tab"] p {
+        color: #e2e8f0 !important;
+        font-weight: 500 !important;
+        font-size: 14px !important;
+    }
+    
+    /* Tab hover */
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(59, 130, 246, 0.2) !important;
+        border-color: rgba(59, 130, 246, 0.4) !important;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover p {
+        color: white !important;
+    }
+    
+    /* Selected/Active tab */
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+        color: white !important;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4) !important;
+    }
+    
+    .stTabs [data-baseweb="tab"][aria-selected="true"] p {
+        color: white !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Tab panel */
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 24px !important;
+        background: transparent !important;
+    }
+    
+    /* =========================================================
+       FIX: INPUT FIELDS - VISIBLE IN BOTH MODES
+       ========================================================= */
+    
+    /* Text inputs */
+    .stTextInput input {
+        background-color: white !important;
+        color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        font-size: 14px !important;
+    }
+    
+    .stTextInput input:focus {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+    }
+    
+    /* Select boxes */
+    .stSelectbox div[data-baseweb="select"] {
+        background-color: white !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+    }
+    
+    .stSelectbox div[data-baseweb="select"] div {
+        color: #1e293b !important;
+    }
+    
+    /* Number inputs */
+    .stNumberInput input {
+        background-color: white !important;
+        color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+    }
+    
+    /* Date inputs */
+    .stDateInput input {
+        background-color: white !important;
+        color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+    }
+    
+    /* Text areas */
+    .stTextArea textarea {
+        background-color: white !important;
+        color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+    }
+    
+    .stTextArea textarea:focus {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+    }
+    
+    /* File uploader */
+    .stFileUploader div {
+        background-color: white !important;
+        border: 1px dashed #cbd5e1 !important;
+        border-radius: 8px !important;
+    }
+    
+    /* =========================================================
+       FIX: LABELS - VISIBLE IN BOTH MODES
+       ========================================================= */
+    .stTextInput label, .stSelectbox label, .stDateInput label,
+    .stNumberInput label, .stRadio label, .stCheckbox label,
+    .stFileUploader label, .stTextArea label {
+        color: #1e293b !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Radio buttons */
+    .stRadio div[role="radiogroup"] label {
+        color: #1e293b !important;
+    }
+    
+    /* Checkbox */
+    .stCheckbox label {
+        color: #1e293b !important;
+    }
+    
+    /* =========================================================
+       DARK MODE OVERRIDES
+       ========================================================= */
+    @media (prefers-color-scheme: dark) {
+        /* Input fields - dark mode */
+        .stTextInput input {
+            background-color: #1e293b !important;
+            color: #e2e8f0 !important;
+            border-color: #334155 !important;
+        }
+        
+        .stSelectbox div[data-baseweb="select"] {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        
+        .stSelectbox div[data-baseweb="select"] div {
+            color: #e2e8f0 !important;
+        }
+        
+        .stNumberInput input {
+            background-color: #1e293b !important;
+            color: #e2e8f0 !important;
+            border-color: #334155 !important;
+        }
+        
+        .stDateInput input {
+            background-color: #1e293b !important;
+            color: #e2e8f0 !important;
+            border-color: #334155 !important;
+        }
+        
+        .stTextArea textarea {
+            background-color: #1e293b !important;
+            color: #e2e8f0 !important;
+            border-color: #334155 !important;
+        }
+        
+        .stFileUploader div {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        
+        /* Labels - dark mode */
+        .stTextInput label, .stSelectbox label, .stDateInput label,
+        .stNumberInput label, .stRadio label, .stCheckbox label,
+        .stFileUploader label, .stTextArea label {
+            color: #e2e8f0 !important;
+        }
+        
+        .stRadio div[role="radiogroup"] label {
+            color: #e2e8f0 !important;
+        }
+        
+        .stCheckbox label {
+            color: #e2e8f0 !important;
+        }
+    }
+    
+    /* =========================================================
+       RESPONSIVE
+       ========================================================= */
+    @media (max-width: 640px) {
+        .stTabs [data-baseweb="tab-list"] {
+            padding: 6px !important;
+            gap: 4px !important;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            padding: 8px 14px !important;
+            font-size: 12px !important;
+            min-height: 36px !important;
+        }
+        
+        .stTabs [data-baseweb="tab"] p {
+            font-size: 12px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # =========================================================
+    # REQUIRED FIELDS NOTE
+    # =========================================================
+    st.markdown("""
+    <div style="
+        background: rgba(255, 68, 68, 0.08);
+        border-left: 4px solid #ff4444;
+        padding: 10px 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255, 68, 68, 0.15);
+    ">
+        <span style="color: #ff6b6b; font-size: 14px;">
+            ⚠️ <strong>Note:</strong> Fields marked with <span style="color: #ff4444; font-weight: bold;">*</span> are required
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ... rest of your code ...
+    # =========================================================
+    # CRITICAL FIX: Keep page steady on refresh
+    # =========================================================
+    if 'on_registration_page' not in st.session_state:
+        st.session_state.on_registration_page = False
+    if 'public_apply_mode' not in st.session_state:
+        st.session_state.public_apply_mode = False
+    
+    st.session_state.on_registration_page = True
+    
+    if "user" not in st.session_state:
+        st.session_state.public_apply_mode = True
+    
+    # Ensure URL parameter persists
+    try:
+        if st.session_state.public_apply_mode:
+            has_apply = False
+            if hasattr(st, 'query_params') and st.query_params:
+                if 'apply' in st.query_params:
+                    has_apply = True
+            if not has_apply:
+                try:
+                    st.query_params['apply'] = 'true'
+                except:
+                    pass
+    except:
+        pass
+
     st.markdown("""
     <div class="main-header">
-        <h1 style="color: white; margin: 0;">📝 Job Application Form</h1>
+        <h1 style="color: white; margin: 0;">📝 ECPSB Application For Employment Form</h1>
         <p style="color: rgba(255,255,255,0.8); margin-top: 0.5rem;">Dear Applicant, kindly complete the application form here.</p>
     </div>
     """, unsafe_allow_html=True)
@@ -8786,6 +9201,8 @@ def data_entry():
         st.session_state.work_experience = []
     if 'form_submitted' not in st.session_state:
         st.session_state.form_submitted = False
+    if 'on_registration_page' not in st.session_state:
+        st.session_state.on_registration_page = True
     
     # =====================================================
     # GET ADVERTISED POSITIONS (ONLY OPEN)
@@ -9189,9 +9606,41 @@ def data_entry():
                         with col2:
                             exp['job_scale'] = st.text_input("Job Scale/Grade", value=exp.get('job_scale', ''), key=f"work_scale_{idx}")
                             exp['salary'] = st.number_input("Gross Monthly Salary (Kshs.)", min_value=0, value=exp.get('salary', 0), step=1000, key=f"work_salary_{idx}")
-                            exp['start_date'] = st.date_input("Start Date", value=exp.get('start_date', None), key=f"work_start_{idx}")
-                            exp['end_date'] = st.date_input("End Date", value=exp.get('end_date', None), key=f"work_end_{idx}")
-                            exp['current'] = st.checkbox("Currently working here", value=exp.get('current', False), key=f"work_current_{idx}")
+                            # =========================================================
+                            # FIXED DATE INPUTS - Allow any year
+                            # =========================================================
+                            # Start Date - allow any year from 1900 to 2100
+                            start_date_val = exp.get('start_date', None)
+                            if start_date_val is None or start_date_val == '':
+                                start_date_val = datetime.now().date()
+                            
+                            exp['start_date'] = st.date_input(
+                                "Start Date", 
+                                value=start_date_val,
+                                min_value=datetime(1900, 1, 1).date(),
+                                max_value=datetime(2100, 12, 31).date(),
+                                key=f"work_start_{idx}"
+                            )
+                            
+                            # End Date - allow any year from 1900 to 2100
+                            end_date_val = exp.get('end_date', None)
+                            if end_date_val is None or end_date_val == '':
+                                end_date_val = datetime.now().date()
+                            
+                            exp['end_date'] = st.date_input(
+                                "End Date", 
+                                value=end_date_val,
+                                min_value=datetime(1900, 1, 1).date(),
+                                max_value=datetime(2100, 12, 31).date(),
+                                key=f"work_end_{idx}"
+                            )
+                            
+                            exp['current'] = st.checkbox(
+                                "Currently working here", 
+                                value=exp.get('current', False), 
+                                key=f"work_current_{idx}"
+                            )
+                            
                             if exp.get('current', False):
                                 exp['end_date'] = None
             else:
@@ -9408,6 +9857,93 @@ def data_entry():
                     """
                     
                     # =========================================================
+                    # SAVE DOCUMENTS FIRST (Before inserting into database)
+                    # =========================================================
+                    doc_paths = {}
+                    uploaded_docs_summary = ""
+                    
+                    # Define document types and their file uploader variables
+                    # These come from TAB 7: DOCUMENTS
+                    doc_mapping = {
+                        'national_id': national_id,
+                        'birth_cert': birth_cert,
+                        'passport_photo': passport_photo,
+                        'kcse_cert': kcse_cert,
+                        'degree_cert': degree_cert,
+                        'prof_cert': prof_cert,
+                    }
+                    
+                    # Also handle other_docs (multiple files)
+                    other_docs_list = []
+                    if other_docs:
+                        for doc_file in other_docs:
+                            other_docs_list.append(doc_file)
+                    
+                    # Save each uploaded document
+                    for doc_type, file_obj in doc_mapping.items():
+                        if file_obj is not None:
+                            try:
+                                # Read file data
+                                file_data = file_obj.read()
+                                file_size = len(file_data)
+                                
+                                # Save locally
+                                file_path = save_document_locally(
+                                    file_data=file_data,
+                                    filename=file_obj.name,
+                                    applicant_name=name,
+                                    doc_type=doc_type
+                                )
+                                
+                                if file_path:
+                                    doc_paths[doc_type] = {
+                                        'path': file_path,
+                                        'filename': file_obj.name,
+                                        'size': file_size
+                                    }
+                                    uploaded_docs_summary += f"✅ {doc_type}: {file_obj.name} ({file_size} bytes)\n"
+                                else:
+                                    uploaded_docs_summary += f"❌ {doc_type}: Failed to save\n"
+                            except Exception as doc_error:
+                                st.warning(f"⚠️ Could not save {doc_type}: {str(doc_error)}")
+                    
+                    # Save other documents (multiple files)
+                    other_doc_paths = []
+                    for idx, doc_file in enumerate(other_docs_list):
+                        try:
+                            file_data = doc_file.read()
+                            file_size = len(file_data)
+                            
+                            file_path = save_document_locally(
+                                file_data=file_data,
+                                filename=doc_file.name,
+                                applicant_name=name,
+                                doc_type=f"other_doc_{idx+1}"
+                            )
+                            
+                            if file_path:
+                                other_doc_paths.append({
+                                    'path': file_path,
+                                    'filename': doc_file.name,
+                                    'size': file_size
+                                })
+                                uploaded_docs_summary += f"✅ other_doc_{idx+1}: {doc_file.name} ({file_size} bytes)\n"
+                        except Exception as doc_error:
+                            st.warning(f"⚠️ Could not save other document {idx+1}: {str(doc_error)}")
+                    
+                    # Add document info to remarks
+                    if doc_paths or other_doc_paths:
+                        full_remarks += "\n\n=== UPLOADED DOCUMENTS ===\n"
+                        full_remarks += uploaded_docs_summary
+                        
+                        # Add detailed paths
+                        full_remarks += "\n=== DOCUMENT STORAGE PATHS ===\n"
+                        for doc_type, doc_info in doc_paths.items():
+                            full_remarks += f"{doc_type}: {doc_info['path']}\n"
+                        for idx, doc_info in enumerate(other_doc_paths):
+                            full_remarks += f"other_doc_{idx+1}: {doc_info['path']}\n"
+                    
+                    # =========================================================
                     # INSERT INTO STAFF TABLE
                     # =========================================================
                     conn = get_conn()
@@ -9520,6 +10056,39 @@ def data_entry():
                         record_id = c.lastrowid
                     
                     conn.commit()
+                    
+                    # =========================================================
+                    # SAVE DOCUMENT METADATA IN DATABASE
+                    # =========================================================
+                    if doc_paths or other_doc_paths:
+                        try:
+                            # Save main documents
+                            for doc_type, doc_info in doc_paths.items():
+                                save_document_metadata(
+                                    conn=conn,
+                                    applicant_id=record_id,
+                                    doc_type=doc_type,
+                                    filename=doc_info['filename'],
+                                    file_path=doc_info['path'],
+                                    file_size=doc_info['size']
+                                )
+                            
+                            # Save other documents
+                            for idx, doc_info in enumerate(other_doc_paths):
+                                save_document_metadata(
+                                    conn=conn,
+                                    applicant_id=record_id,
+                                    doc_type=f"other_doc_{idx+1}",
+                                    filename=doc_info['filename'],
+                                    file_path=doc_info['path'],
+                                    file_size=doc_info['size']
+                                )
+                            
+                            conn.commit()
+                            print(f"✅ Saved {len(doc_paths) + len(other_doc_paths)} document metadata records")
+                        except Exception as meta_error:
+                            print(f"⚠️ Metadata save error: {meta_error}")
+                    
                     conn.close()
                     
                     # =========================================================
@@ -9529,7 +10098,7 @@ def data_entry():
                         st.session_state.user["username"] if "user" in st.session_state and st.session_state.user else "applicant",
                         "APPLICATION_SUBMIT",
                         record_id,
-                        f"New application submitted: {name} for {position_applied} (Ref: {advertisement_ref})"
+                        f"New application submitted: {name} for {position_applied} (Ref: {advertisement_ref}) | Documents: {len(doc_paths) + len(other_doc_paths)} files"
                     )
                     
                     st.balloons()
@@ -9543,6 +10112,7 @@ def data_entry():
                     - ID Number: {id_number}
                     - Application Date: {application_date}
                     - Application ID: {record_id}
+                    - Documents Uploaded: {len(doc_paths) + len(other_doc_paths)} file(s)
                     
                     **Next Steps:**
                     1. You will receive a confirmation SMS/Email
@@ -9551,7 +10121,8 @@ def data_entry():
                     
                     Thank you for applying to Embu County Public Service Board!
                     """)
-                     # Clear all session state variables
+                    
+                    # Clear all session state variables
                     st.session_state.academic_qualifications = []
                     st.session_state.professional_qualifications = []
                     st.session_state.other_courses = []
@@ -9721,6 +10292,75 @@ def data_entry():
             st.session_state.professional_memberships = []
             st.session_state.work_experience = []
             st.rerun()
+
+def view_applicant_documents():
+    """Display all documents for a selected applicant"""
+    
+    st.subheader("📄 Applicant Documents")
+    
+    # Get selected applicant
+    conn = get_conn()
+    applicants = pd.read_sql("SELECT id, name FROM staff ORDER BY name", conn)
+    
+    if applicants.empty:
+        st.info("No applicants found")
+        return
+    
+    selected_applicant = st.selectbox(
+        "Select Applicant",
+        applicants['id'].tolist(),
+        format_func=lambda x: applicants[applicants['id'] == x]['name'].iloc[0]
+    )
+    
+    if selected_applicant:
+        # Get documents for this applicant
+        is_cloud = st.secrets.get("DATABASE_URL") is not None
+        
+        if is_cloud:
+            docs = pd.read_sql(
+                "SELECT * FROM applicant_documents WHERE applicant_id = %s ORDER BY uploaded_at DESC",
+                conn,
+                params=(selected_applicant,)
+            )
+        else:
+            docs = pd.read_sql(
+                "SELECT * FROM applicant_documents WHERE applicant_id = ? ORDER BY uploaded_at DESC",
+                conn,
+                params=(selected_applicant,)
+            )
+        
+        if docs.empty:
+            st.info("No documents uploaded for this applicant")
+        else:
+            for idx, doc in docs.iterrows():
+                with st.expander(f"📄 {doc['doc_type']} - {doc['filename']}"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**File:** {doc['filename']}")
+                        st.write(f"**Type:** {doc['doc_type']}")
+                        st.write(f"**Size:** {doc['file_size']} bytes")
+                        st.write(f"**Uploaded:** {doc['uploaded_at']}")
+                    with col2:
+                        # Show file path
+                        st.write(f"**Path:** `{doc['file_path']}`")
+                        
+                        # Download button
+                        try:
+                            with open(doc['file_path'], 'rb') as f:
+                                file_data = f.read()
+                                st.download_button(
+                                    label="📥 Download",
+                                    data=file_data,
+                                    file_name=doc['filename'],
+                                    mime="application/octet-stream",
+                                    key=f"download_{doc['id']}"
+                                )
+                        except FileNotFoundError:
+                            st.error("❌ File not found on server")
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+    
+    conn.close()
 # =========================================================
 # STAFF RECORDS
 # =========================================================
