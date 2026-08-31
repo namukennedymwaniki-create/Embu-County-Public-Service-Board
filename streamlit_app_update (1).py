@@ -1140,7 +1140,12 @@ def get_user_menu():
     # Super Admin gets audit and backup
     if role == "Super Admin":
         menu.extend(["🔒 Audit Trail", "💾 Backup & Restore"])
-    
+    # =========================================================
+    # TEST GCS CONNECTION - Add main item
+    # =========================================================
+    if role in ["Super Admin", "Admin"]:
+        if "🔍 Test GCS Connection" not in menu:
+            menu.append("🔍 Test GCS Connection")
     
     return menu
 # =========================================================
