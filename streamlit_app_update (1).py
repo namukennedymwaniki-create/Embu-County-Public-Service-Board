@@ -8765,71 +8765,144 @@ def applicant_profile():
 # DOCUMENT STORAGE FUNCTIONS - ADD THIS SECTION
 # =========================================================
 
-import os
+# =========================================================
+# GOOGLE CLOUD STORAGE UPLOAD FUNCTIONS
+# =========================================================
+
+import json
 import uuid
 from datetime import datetime
+from google.cloud import storage
+from google.oauth2 import service_account
 
-def save_document_locally(file_data, filename, applicant_name, doc_type):
-    """Save document to local server storage"""
+def get_gcs_client():
+    """Get Google Cloud Storage client using credentials from secrets"""
     try:
-        # Create upload directory
-        upload_dir = "uploads/applicants"
-        os.makedirs(upload_dir, exist_ok=True)
+        credentials_json = st.secrets.get("GCS_CREDENTIALS")
+        if credentials_json:
+            if isinstance(credentials_json, str):
+                creds_dict = json.loads(credentials_json)
+            else:
+                creds_dict = credentials_json
+            
+            credentials = service_account.Credentials.from_service_account_info(creds_dict)
+            client = storage.Client(credentials=credentials)
+        else:
+            client = storage.Client()
         
-        # Create applicant folder with timestamp
-        safe_name = applicant_name.replace(" ", "_").replace("/", "_")[:30]
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        applicant_dir = f"{upload_dir}/{safe_name}_{timestamp}"
-        os.makedirs(applicant_dir, exist_ok=True)
-        
-        # Save file
-        extension = filename.split('.')[-1] if '.' in filename else 'pdf'
-        file_path = f"{applicant_dir}/{doc_type}.{extension}"
-        
-        with open(file_path, 'wb') as f:
-            f.write(file_data)
-        
-        return file_path
-        
+        return client
     except Exception as e:
-        print(f"Save error: {e}")
+        print(f"GCS client error: {e}")
         return None
 
-def save_document_metadata(conn, applicant_id, doc_type, filename, file_path, file_size, applicant_name=None, id_number=None):
-    """Save document metadata to database"""
-    cursor = conn.cursor()
-    is_cloud = st.secrets.get("DATABASE_URL") is not None
+def upload_document_to_gcs(file_data, filename, applicant_name, doc_type, applicant_id=None):
+    """
+    Upload document to Google Cloud Storage
+    
+    Parameters:
+    - file_data: Binary file data (bytes)
+    - filename: Original filename
+    - applicant_name: Name of the applicant
+    - doc_type: Type of document (national_id, kcse, etc.)
+    - applicant_id: Optional applicant ID for folder structure
+    
+    Returns:
+    - public_url: Public URL of the uploaded file
+    - storage_path: Storage path of the file
+    """
+    try:
+        client = get_gcs_client()
+        if client is None:
+            return None, None
+        
+        bucket_name = st.secrets.get("GCS_BUCKET_NAME")
+        if not bucket_name:
+            print("❌ GCS_BUCKET_NAME not configured in secrets")
+            return None, None
+        
+        bucket = client.bucket(bucket_name)
+        
+        # Generate unique filename
+        extension = filename.split('.')[-1] if '.' in filename else 'pdf'
+        unique_id = uuid.uuid4().hex[:8]
+        safe_name = applicant_name.replace(" ", "_").replace("/", "_")[:30]
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        # Create folder structure
+        if applicant_id:
+            folder = f"applicants/{applicant_id}_{safe_name}_{timestamp}"
+        else:
+            folder = f"applicants/{safe_name}_{timestamp}"
+        
+        storage_path = f"{folder}/{doc_type}.{extension}"
+        blob = bucket.blob(storage_path)
+        
+        # Upload file
+        blob.upload_from_string(
+            file_data,
+            content_type=f'application/{extension}',
+            timeout=60
+        )
+        
+        # Make publicly accessible
+        blob.make_public()
+        
+        return blob.public_url, storage_path
+        
+    except Exception as e:
+        print(f"GCS upload error: {e}")
+        return None, None
+
+def save_document_to_gcs(applicant_id, doc_type, file_obj, applicant_name):
+    """
+    Save a document to Google Cloud Storage and update metadata
+    """
+    if file_obj is None:
+        return None
     
     try:
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Read file data
+        file_data = file_obj.read()
+        filename = file_obj.name
+        file_size = len(file_data)
         
-        # If applicant_name and id_number are not provided, fetch them from staff table
-        if applicant_name is None or id_number is None:
-            cursor.execute("SELECT name, id_number FROM staff WHERE id = %s", (applicant_id,))
-            staff_data = cursor.fetchone()
-            if staff_data:
-                applicant_name = staff_data[0]
-                id_number = staff_data[1]
+        # Upload to GCS
+        public_url, storage_path = upload_document_to_gcs(
+            file_data=file_data,
+            filename=filename,
+            applicant_name=applicant_name,
+            doc_type=doc_type,
+            applicant_id=applicant_id
+        )
         
-        if is_cloud:
-            cursor.execute("""
-                INSERT INTO applicant_documents (
-                    applicant_id, applicant_name, id_number, doc_type, 
-                    filename, file_path, file_size, uploaded_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (applicant_id, applicant_name, id_number, doc_type, filename, file_path, file_size, now))
-        else:
-            cursor.execute("""
-                INSERT INTO applicant_documents (
-                    applicant_id, applicant_name, id_number, doc_type, 
-                    filename, file_path, file_size, uploaded_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (applicant_id, applicant_name, id_number, doc_type, filename, file_path, file_size, now))
+        if public_url and storage_path:
+            # Save metadata to database
+            conn = get_conn()
+            if conn:
+                success = save_document_metadata(
+                    conn=conn,
+                    applicant_id=applicant_id,
+                    doc_type=doc_type,
+                    filename=filename,
+                    file_path=storage_path,
+                    file_size=file_size,
+                    applicant_name=applicant_name,
+                    id_number=None
+                )
+                conn.close()
+                if success:
+                    return {
+                        'public_url': public_url,
+                        'storage_path': storage_path,
+                        'filename': filename,
+                        'size': file_size
+                    }
         
-        return True
+        return None
+        
     except Exception as e:
-        print(f"Metadata save error: {e}")
-        return False
+        print(f"Error saving document to GCS: {e}")
+        return None
 
 # =========================================================
 # CREATE DOCUMENTS TABLE
@@ -9857,13 +9930,12 @@ def data_entry():
                     """
                     
                     # =========================================================
-                    # SAVE DOCUMENTS FIRST (Before inserting into database)
+                    # SAVE DOCUMENTS TO GOOGLE CLOUD STORAGE
                     # =========================================================
                     doc_paths = {}
                     uploaded_docs_summary = ""
                     
                     # Define document types and their file uploader variables
-                    # These come from TAB 7: DOCUMENTS
                     doc_mapping = {
                         'national_id': national_id,
                         'birth_cert': birth_cert,
@@ -9879,7 +9951,17 @@ def data_entry():
                         for doc_file in other_docs:
                             other_docs_list.append(doc_file)
                     
-                    # Save each uploaded document
+                    # =========================================================
+                    # UPLOAD TO GCS - REPLACES LOCAL STORAGE
+                    # =========================================================
+                    # First, insert into staff table to get record_id
+                    # (The INSERT happens after this section in your code)
+                    # So we'll store the files temporarily and upload after getting record_id
+                    
+                    # Store file data temporarily
+                    temp_files = {}
+                    
+                    # Read and store file data for main documents
                     for doc_type, file_obj in doc_mapping.items():
                         if file_obj is not None:
                             try:
@@ -9887,64 +9969,31 @@ def data_entry():
                                 file_data = file_obj.read()
                                 file_size = len(file_data)
                                 
-                                # Save locally
-                                file_path = save_document_locally(
-                                    file_data=file_data,
-                                    filename=file_obj.name,
-                                    applicant_name=name,
-                                    doc_type=doc_type
-                                )
-                                
-                                if file_path:
-                                    doc_paths[doc_type] = {
-                                        'path': file_path,
-                                        'filename': file_obj.name,
-                                        'size': file_size
-                                    }
-                                    uploaded_docs_summary += f"✅ {doc_type}: {file_obj.name} ({file_size} bytes)\n"
-                                else:
-                                    uploaded_docs_summary += f"❌ {doc_type}: Failed to save\n"
+                                temp_files[doc_type] = {
+                                    'data': file_data,
+                                    'filename': file_obj.name,
+                                    'size': file_size
+                                }
                             except Exception as doc_error:
-                                st.warning(f"⚠️ Could not save {doc_type}: {str(doc_error)}")
+                                st.warning(f"⚠️ Could not read {doc_type}: {str(doc_error)}")
                     
-                    # Save other documents (multiple files)
-                    other_doc_paths = []
+                    # Read and store file data for other documents
+                    temp_other_files = []
                     for idx, doc_file in enumerate(other_docs_list):
                         try:
                             file_data = doc_file.read()
                             file_size = len(file_data)
-                            
-                            file_path = save_document_locally(
-                                file_data=file_data,
-                                filename=doc_file.name,
-                                applicant_name=name,
-                                doc_type=f"other_doc_{idx+1}"
-                            )
-                            
-                            if file_path:
-                                other_doc_paths.append({
-                                    'path': file_path,
-                                    'filename': doc_file.name,
-                                    'size': file_size
-                                })
-                                uploaded_docs_summary += f"✅ other_doc_{idx+1}: {doc_file.name} ({file_size} bytes)\n"
+                            temp_other_files.append({
+                                'data': file_data,
+                                'filename': doc_file.name,
+                                'size': file_size,
+                                'index': idx + 1
+                            })
                         except Exception as doc_error:
-                            st.warning(f"⚠️ Could not save other document {idx+1}: {str(doc_error)}")
-                    
-                    # Add document info to remarks
-                    if doc_paths or other_doc_paths:
-                        full_remarks += "\n\n=== UPLOADED DOCUMENTS ===\n"
-                        full_remarks += uploaded_docs_summary
-                        
-                        # Add detailed paths
-                        full_remarks += "\n=== DOCUMENT STORAGE PATHS ===\n"
-                        for doc_type, doc_info in doc_paths.items():
-                            full_remarks += f"{doc_type}: {doc_info['path']}\n"
-                        for idx, doc_info in enumerate(other_doc_paths):
-                            full_remarks += f"other_doc_{idx+1}: {doc_info['path']}\n"
+                            st.warning(f"⚠️ Could not read other document {idx+1}: {str(doc_error)}")
                     
                     # =========================================================
-                    # INSERT INTO STAFF TABLE
+                    # INSERT INTO STAFF TABLE (This is where record_id is created)
                     # =========================================================
                     conn = get_conn()
                     c = conn.cursor()
@@ -10058,36 +10107,94 @@ def data_entry():
                     conn.commit()
                     
                     # =========================================================
-                    # SAVE DOCUMENT METADATA IN DATABASE
+                    # NOW UPLOAD DOCUMENTS TO GCS USING THE record_id
                     # =========================================================
-                    if doc_paths or other_doc_paths:
+                    gcs_upload_success = 0
+                    gcs_upload_failed = 0
+                    
+                    # Upload main documents
+                    for doc_type, file_info in temp_files.items():
                         try:
-                            # Save main documents
-                            for doc_type, doc_info in doc_paths.items():
-                                save_document_metadata(
-                                    conn=conn,
-                                    applicant_id=record_id,
-                                    doc_type=doc_type,
-                                    filename=doc_info['filename'],
-                                    file_path=doc_info['path'],
-                                    file_size=doc_info['size']
-                                )
+                            result = save_document_to_gcs(
+                                applicant_id=record_id,
+                                doc_type=doc_type,
+                                file_obj=file_info,  # Pass the file info
+                                applicant_name=name
+                            )
                             
-                            # Save other documents
-                            for idx, doc_info in enumerate(other_doc_paths):
-                                save_document_metadata(
-                                    conn=conn,
-                                    applicant_id=record_id,
-                                    doc_type=f"other_doc_{idx+1}",
-                                    filename=doc_info['filename'],
-                                    file_path=doc_info['path'],
-                                    file_size=doc_info['size']
-                                )
+                            # We need to pass the file properly - let's create a simple object
+                            # Since we already read the file, we need to create a file-like object
+                            from io import BytesIO
+                            file_obj = BytesIO(file_info['data'])
+                            file_obj.name = file_info['filename']
                             
-                            conn.commit()
-                            print(f"✅ Saved {len(doc_paths) + len(other_doc_paths)} document metadata records")
-                        except Exception as meta_error:
-                            print(f"⚠️ Metadata save error: {meta_error}")
+                            result = save_document_to_gcs(
+                                applicant_id=record_id,
+                                doc_type=doc_type,
+                                file_obj=file_obj,
+                                applicant_name=name
+                            )
+                            
+                            if result:
+                                doc_paths[doc_type] = result
+                                uploaded_docs_summary += f"✅ {doc_type}: {result['filename']} ({result['size']} bytes) - [GCS]\n"
+                                gcs_upload_success += 1
+                            else:
+                                uploaded_docs_summary += f"❌ {doc_type}: Failed to upload to GCS\n"
+                                gcs_upload_failed += 1
+                        except Exception as e:
+                            uploaded_docs_summary += f"❌ {doc_type}: Error - {str(e)}\n"
+                            gcs_upload_failed += 1
+                    
+                    # Upload other documents
+                    for file_info in temp_other_files:
+                        try:
+                            from io import BytesIO
+                            file_obj = BytesIO(file_info['data'])
+                            file_obj.name = file_info['filename']
+                            
+                            result = save_document_to_gcs(
+                                applicant_id=record_id,
+                                doc_type=f"other_doc_{file_info['index']}",
+                                file_obj=file_obj,
+                                applicant_name=name
+                            )
+                            
+                            if result:
+                                doc_paths[f"other_doc_{file_info['index']}"] = result
+                                uploaded_docs_summary += f"✅ other_doc_{file_info['index']}: {result['filename']} ({result['size']} bytes) - [GCS]\n"
+                                gcs_upload_success += 1
+                            else:
+                                uploaded_docs_summary += f"❌ other_doc_{file_info['index']}: Failed to upload to GCS\n"
+                                gcs_upload_failed += 1
+                        except Exception as e:
+                            uploaded_docs_summary += f"❌ other_doc_{file_info['index']}: Error - {str(e)}\n"
+                            gcs_upload_failed += 1
+                    
+                    # Add document info to remarks
+                    if doc_paths:
+                        full_remarks += "\n\n=== UPLOADED DOCUMENTS (GCS) ===\n"
+                        full_remarks += uploaded_docs_summary
+                        full_remarks += f"\n📊 Upload Summary: {gcs_upload_success} successful, {gcs_upload_failed} failed"
+                        full_remarks += "\n\n=== DOCUMENT STORAGE (Google Cloud Storage) ===\n"
+                        for doc_type, doc_info in doc_paths.items():
+                            full_remarks += f"{doc_type}: {doc_info['public_url']}\n"
+                        
+                        # Update remarks in database
+                        cursor = conn.cursor()
+                        if is_cloud:
+                            cursor.execute("""
+                                UPDATE staff 
+                                SET remarks = %s 
+                                WHERE id = %s
+                            """, (full_remarks, record_id))
+                        else:
+                            cursor.execute("""
+                                UPDATE staff 
+                                SET remarks = ? 
+                                WHERE id = ?
+                            """, (full_remarks, record_id))
+                        conn.commit()
                     
                     conn.close()
                     
@@ -10294,9 +10401,9 @@ def data_entry():
             st.rerun()
 
 def view_applicant_documents():
-    """Display all documents for a selected applicant"""
+    """Display all documents for a selected applicant from Google Cloud Storage"""
     
-    st.subheader("📄 Applicant Documents")
+    st.subheader("📄 Applicant Documents (GCS)")
     
     # Get selected applicant
     conn = get_conn()
@@ -10304,6 +10411,7 @@ def view_applicant_documents():
     
     if applicants.empty:
         st.info("No applicants found")
+        conn.close()
         return
     
     selected_applicant = st.selectbox(
@@ -10340,25 +10448,46 @@ def view_applicant_documents():
                         st.write(f"**Type:** {doc['doc_type']}")
                         st.write(f"**Size:** {doc['file_size']} bytes")
                         st.write(f"**Uploaded:** {doc['uploaded_at']}")
+                        st.write(f"**Storage:** ☁️ Google Cloud Storage")
                     with col2:
-                        # Show file path
-                        st.write(f"**Path:** `{doc['file_path']}`")
-                        
-                        # Download button
                         try:
-                            with open(doc['file_path'], 'rb') as f:
-                                file_data = f.read()
-                                st.download_button(
-                                    label="📥 Download",
-                                    data=file_data,
-                                    file_name=doc['filename'],
-                                    mime="application/octet-stream",
-                                    key=f"download_{doc['id']}"
-                                )
-                        except FileNotFoundError:
-                            st.error("❌ File not found on server")
+                            # Get the public URL from GCS
+                            client = get_gcs_client()
+                            if client:
+                                bucket_name = st.secrets.get("GCS_BUCKET_NAME")
+                                bucket = client.bucket(bucket_name)
+                                blob = bucket.blob(doc['file_path'])
+                                
+                                if blob.exists():
+                                    st.success("✅ File available in GCS")
+                                    
+                                    # Show public URL
+                                    st.write(f"**Public URL:**")
+                                    st.code(blob.public_url)
+                                    
+                                    # Direct link
+                                    st.markdown(f"[🔗 View Document]({blob.public_url})", unsafe_allow_html=True)
+                                    
+                                    # Download button
+                                    file_data = blob.download_as_bytes()
+                                    st.download_button(
+                                        label="📥 Download",
+                                        data=file_data,
+                                        file_name=doc['filename'],
+                                        mime="application/octet-stream",
+                                        key=f"download_{doc['id']}",
+                                        use_container_width=True
+                                    )
+                                    
+                                    # Preview image
+                                    if doc['filename'].lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                                        st.image(file_data, caption=doc['filename'], use_container_width=True)
+                                else:
+                                    st.error("❌ File not found in cloud storage")
+                            else:
+                                st.error("❌ Could not connect to cloud storage")
                         except Exception as e:
-                            st.error(f"Error: {e}")
+                            st.error(f"Error accessing file: {e}")
     
     conn.close()
 # =========================================================
