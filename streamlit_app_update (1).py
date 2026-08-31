@@ -7433,25 +7433,25 @@ def sidebar():
             "🧪 Test Data": "Generate sample data",
             "⚙️ Settings": "System configuration",
             "👤 Users": "User management",
-            "🔍 Test GCS Connection": "Google Cloud Storage Test",
+            "🔍 Test GCS Connection": "Google Cloud Storage Test"
             
-            # =========================================================
-            # LEAVE MANAGEMENT MENU DESCRIPTIONS
-            # =========================================================
-            # =========================================================
-            # LEAVE MANAGEMENT MENU DESCRIPTIONS
-            # =========================================================
-            "🏖️ Leave Management": "Leave management module",
-            "    ├─ Dashboard": "Leave overview & statistics",
-            "    ├─ Apply for Leave": "Submit leave application",
-            "    ├─ My Leave": "View your leave history",
-            "    ├─ Leave Approvals": "Review pending applications",
-            "    ├─ Leave Calendar": "View leave schedules",
-            "    ├─ Leave Roster": "Staff on leave",
-            "    ├─ Leave Balances": "View leave balances",
-            "    └─ Reports": "Generate leave reports",
-            "    └─ Leave Admin": "Configure leave settings"
-        }
+        #     # =========================================================
+        #     # LEAVE MANAGEMENT MENU DESCRIPTIONS
+        #     # =========================================================
+        #     # =========================================================
+        #     # LEAVE MANAGEMENT MENU DESCRIPTIONS
+        #     # =========================================================
+        #     "🏖️ Leave Management": "Leave management module",
+        #     "    ├─ Dashboard": "Leave overview & statistics",
+        #     "    ├─ Apply for Leave": "Submit leave application",
+        #     "    ├─ My Leave": "View your leave history",
+        #     "    ├─ Leave Approvals": "Review pending applications",
+        #     "    ├─ Leave Calendar": "View leave schedules",
+        #     "    ├─ Leave Roster": "Staff on leave",
+        #     "    ├─ Leave Balances": "View leave balances",
+        #     "    └─ Reports": "Generate leave reports",
+        #     "    └─ Leave Admin": "Configure leave settings"
+        # }
 
         menu = st.radio(
                 "Navigation",
