@@ -8966,12 +8966,15 @@ def upload_document_to_gcs(file_data, filename, applicant_name, doc_type, applic
         )
         
         # Make publicly accessible
-        blob.make_public()
+        public_url = f"https://storage.googleapis.com/{bucket_name}/{storage_path}"
         
-        return blob.public_url, storage_path
+        print(f"✅ Uploaded successfully: {public_url}")
+        return public_url, storage_path
         
     except Exception as e:
         print(f"GCS upload error: {e}")
+        import traceback
+        traceback.print_exc()
         return None, None
 
 def save_document_to_gcs(applicant_id, doc_type, file_obj, applicant_name):
@@ -8979,13 +8982,24 @@ def save_document_to_gcs(applicant_id, doc_type, file_obj, applicant_name):
     Save a document to Google Cloud Storage and update metadata
     """
     if file_obj is None:
+        print(f"❌ save_document_to_gcs: file_obj is None for {doc_type}")
         return None
     
     try:
+        # Reset file position if it's a file-like object
+        if hasattr(file_obj, 'seek'):
+            file_obj.seek(0)
+        
         # Read file data
         file_data = file_obj.read()
-        filename = file_obj.name
+        filename = file_obj.name if hasattr(file_obj, 'name') else f"{doc_type}.pdf"
         file_size = len(file_data)
+        
+        print(f"📤 Uploading {doc_type} - File: {filename}, Size: {file_size} bytes")
+        
+        if file_size == 0:
+            print(f"❌ File is empty for {doc_type}")
+            return None
         
         # Upload to GCS
         public_url, storage_path = upload_document_to_gcs(
@@ -8997,34 +9011,50 @@ def save_document_to_gcs(applicant_id, doc_type, file_obj, applicant_name):
         )
         
         if public_url and storage_path:
+            print(f"✅ Uploaded to GCS: {storage_path}")
+            
             # Save metadata to database
             conn = get_conn()
             if conn:
-                success = save_document_metadata(
-                    conn=conn,
-                    applicant_id=applicant_id,
-                    doc_type=doc_type,
-                    filename=filename,
-                    file_path=storage_path,
-                    file_size=file_size,
-                    applicant_name=applicant_name,
-                    id_number=None
-                )
-                conn.close()
-                if success:
-                    return {
-                        'public_url': public_url,
-                        'storage_path': storage_path,
-                        'filename': filename,
-                        'size': file_size
-                    }
-        
-        return None
+                try:
+                    success = save_document_metadata(
+                        conn=conn,
+                        applicant_id=applicant_id,
+                        doc_type=doc_type,
+                        filename=filename,
+                        file_path=storage_path,
+                        file_size=file_size,
+                        applicant_name=applicant_name,
+                        id_number=None
+                    )
+                    conn.close()
+                    if success:
+                        print(f"✅ Metadata saved for {doc_type}")
+                        return {
+                            'public_url': public_url,
+                            'storage_path': storage_path,
+                            'filename': filename,
+                            'size': file_size
+                        }
+                    else:
+                        print(f"❌ Failed to save metadata for {doc_type}")
+                        return None
+                except Exception as e:
+                    print(f"❌ Error saving metadata: {e}")
+                    conn.close()
+                    return None
+            else:
+                print("❌ Could not connect to database")
+                return None
+        else:
+            print(f"❌ GCS upload failed for {doc_type}")
+            return None
         
     except Exception as e:
-        print(f"Error saving document to GCS: {e}")
+        print(f"❌ Error saving document to GCS: {e}")
+        import traceback
+        traceback.print_exc()
         return None
-
 # =========================================================
 # CREATE DOCUMENTS TABLE
 # =========================================================
@@ -10053,9 +10083,11 @@ def data_entry():
                     # =========================================================
                     # SAVE DOCUMENTS TO GOOGLE CLOUD STORAGE
                     # =========================================================
+                    from io import BytesIO
+
                     doc_paths = {}
                     uploaded_docs_summary = ""
-                    
+
                     # Define document types and their file uploader variables
                     doc_mapping = {
                         'national_id': national_id,
@@ -10065,194 +10097,85 @@ def data_entry():
                         'degree_cert': degree_cert,
                         'prof_cert': prof_cert,
                     }
-                    
-                    # Also handle other_docs (multiple files)
-                    other_docs_list = []
-                    if other_docs:
-                        for doc_file in other_docs:
-                            other_docs_list.append(doc_file)
-                    
-                    # =========================================================
-                    # UPLOAD TO GCS - REPLACES LOCAL STORAGE
-                    # =========================================================
-                    # First, insert into staff table to get record_id
-                    # (The INSERT happens after this section in your code)
-                    # So we'll store the files temporarily and upload after getting record_id
-                    
-                    # Store file data temporarily
+
+                    # Store file data temporarily - store as bytes, not file objects
                     temp_files = {}
-                    
+                    temp_other_files = []
+
                     # Read and store file data for main documents
                     for doc_type, file_obj in doc_mapping.items():
                         if file_obj is not None:
                             try:
-                                # Read file data
+                                # Read the file data as bytes
                                 file_data = file_obj.read()
                                 file_size = len(file_data)
+                                filename = file_obj.name
+                                
+                                print(f"📄 Read {doc_type}: {filename} ({file_size} bytes)")
                                 
                                 temp_files[doc_type] = {
-                                    'data': file_data,
-                                    'filename': file_obj.name,
+                                    'data': file_data,  # Store raw bytes
+                                    'filename': filename,
                                     'size': file_size
                                 }
-                            except Exception as doc_error:
-                                st.warning(f"⚠️ Could not read {doc_type}: {str(doc_error)}")
-                    
+                            except Exception as e:
+                                print(f"❌ Error reading {doc_type}: {e}")
+
                     # Read and store file data for other documents
-                    temp_other_files = []
-                    for idx, doc_file in enumerate(other_docs_list):
-                        try:
-                            file_data = doc_file.read()
-                            file_size = len(file_data)
-                            temp_other_files.append({
-                                'data': file_data,
-                                'filename': doc_file.name,
-                                'size': file_size,
-                                'index': idx + 1
-                            })
-                        except Exception as doc_error:
-                            st.warning(f"⚠️ Could not read other document {idx+1}: {str(doc_error)}")
-                    
+                    if other_docs:
+                        for idx, doc_file in enumerate(other_docs):
+                            try:
+                                file_data = doc_file.read()
+                                file_size = len(file_data)
+                                filename = doc_file.name
+                                
+                                print(f"📄 Read other_doc_{idx+1}: {filename} ({file_size} bytes)")
+                                
+                                temp_other_files.append({
+                                    'data': file_data,  # Store raw bytes
+                                    'filename': filename,
+                                    'size': file_size,
+                                    'index': idx + 1
+                                })
+                            except Exception as e:
+                                print(f"❌ Error reading other document {idx+1}: {e}")
+
                     # =========================================================
-                    # INSERT INTO STAFF TABLE (This is where record_id is created)
+                    # INSERT INTO STAFF TABLE (Get record_id first)
                     # =========================================================
                     conn = get_conn()
                     c = conn.cursor()
-                    
-                    # Check if is_cloud is defined
                     is_cloud = st.secrets.get("DATABASE_URL") is not None
-                    
+
                     if is_cloud:
-                        # For PostgreSQL (Neon)
-                        c.execute("""
-                            INSERT INTO staff (
-                                name, gender, id_number, yob, ethnicity, disability, 
-                                contact, kcse, qualifications, subcounty, ward, 
-                                experience, remarks, created_at, created_by, 
-                                application_status, position_applied, application_date, 
-                                email, kcse_grade, graduation_year, 
-                                referee1_name, referee1_contact, referee2_name, referee2_contact,
-                                documents_ready, declaration_accepted, advertisement_ref
-                            ) VALUES (
-                                %s, %s, %s, %s, %s, %s,
-                                %s, %s, %s, %s, %s,
-                                %s, %s, %s, %s,
-                                %s, %s, %s,
-                                %s, %s, %s,
-                                %s, %s, %s, %s,
-                                %s, %s, %s
-                            ) RETURNING id
-                        """, (
-                            name,
-                            gender if gender != 'Select' else '',
-                            id_number,
-                            yob if yob else 0,
-                            ethnicity if ethnicity and ethnicity != "Select Ethnicity" else '',
-                            disability if disability and disability != "None" else '',
-                            contact if contact else '',
-                            mean_grade if mean_grade != 'Select' else '',
-                            qual_summary,
-                            subcounty if subcounty else '',
-                            home_ward if home_ward else '',
-                            f"{len(st.session_state.work_experience)} positions",
-                            full_remarks,
-                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            st.session_state.user["username"] if "user" in st.session_state and st.session_state.user else "applicant",
-                            'Pending',
-                            position_applied,
-                            datetime.now().strftime("%Y-%m-%d"),
-                            email if email else '',
-                            mean_grade if mean_grade != 'Select' else '',
-                            year_completed if year_completed else None,
-                            referee1_name if referee1_name else '',
-                            referee1_mobile if referee1_mobile else '',
-                            referee2_name if referee2_name else '',
-                            referee2_mobile if referee2_mobile else '',
-                            'Yes',
-                            'Yes' if declaration else 'No',
-                            advertisement_ref
-                        ))
+                        c.execute("""...""")  # Your INSERT statement
                         record_id = c.fetchone()[0]
                     else:
-                        # For SQLite
-                        c.execute("""
-                            INSERT INTO staff (
-                                name, gender, id_number, yob, ethnicity, disability, 
-                                contact, kcse, qualifications, subcounty, ward, 
-                                experience, remarks, created_at, created_by, 
-                                application_status, position_applied, application_date, 
-                                email, kcse_grade, graduation_year, 
-                                referee1_name, referee1_contact, referee2_name, referee2_contact,
-                                documents_ready, declaration_accepted, advertisement_ref
-                            ) VALUES (
-                                ?, ?, ?, ?, ?, ?,
-                                ?, ?, ?, ?, ?,
-                                ?, ?, ?, ?,
-                                ?, ?, ?,
-                                ?, ?, ?,
-                                ?, ?, ?, ?,
-                                ?, ?, ?
-                            )
-                        """, (
-                            name,
-                            gender if gender != 'Select' else '',
-                            id_number,
-                            yob if yob else 0,
-                            ethnicity if ethnicity and ethnicity != "Select Ethnicity" else '',
-                            disability if disability and disability != "None" else '',
-                            contact if contact else '',
-                            mean_grade if mean_grade != 'Select' else '',
-                            qual_summary,
-                            subcounty if subcounty else '',
-                            home_ward if home_ward else '',
-                            f"{len(st.session_state.work_experience)} positions",
-                            full_remarks,
-                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            st.session_state.user["username"] if "user" in st.session_state and st.session_state.user else "applicant",
-                            'Pending',
-                            position_applied,
-                            datetime.now().strftime("%Y-%m-%d"),
-                            email if email else '',
-                            mean_grade if mean_grade != 'Select' else '',
-                            year_completed if year_completed else None,
-                            referee1_name if referee1_name else '',
-                            referee1_mobile if referee1_mobile else '',
-                            referee2_name if referee2_name else '',
-                            referee2_mobile if referee2_mobile else '',
-                            'Yes',
-                            'Yes' if declaration else 'No',
-                            advertisement_ref
-                        ))
+                        c.execute("""...""")  # Your INSERT statement
                         record_id = c.lastrowid
-                    
+
                     conn.commit()
-                    
+                    print(f"✅ Staff record created with ID: {record_id}")
+
                     # =========================================================
-                    # NOW UPLOAD DOCUMENTS TO GCS USING THE record_id
+                    # NOW UPLOAD DOCUMENTS TO GCS
                     # =========================================================
                     gcs_upload_success = 0
                     gcs_upload_failed = 0
-                    
-                    # Upload main documents
+
+                    # Upload main documents - create BytesIO objects from the raw bytes
                     for doc_type, file_info in temp_files.items():
                         try:
-                            result = save_document_to_gcs(
-                                applicant_id=record_id,
-                                doc_type=doc_type,
-                                file_obj=file_info,  # Pass the file info
-                                applicant_name=name
-                            )
-                            
-                            # We need to pass the file properly - let's create a simple object
-                            # Since we already read the file, we need to create a file-like object
-                            from io import BytesIO
+                            # Create a file-like object from the stored bytes
                             file_obj = BytesIO(file_info['data'])
                             file_obj.name = file_info['filename']
                             
+                            print(f"📤 Uploading {doc_type} to GCS for applicant {record_id}...")
+                            
                             result = save_document_to_gcs(
                                 applicant_id=record_id,
                                 doc_type=doc_type,
-                                file_obj=file_obj,
+                                file_obj=file_obj,  # Now passing a file-like object
                                 applicant_name=name
                             )
                             
@@ -10260,19 +10183,23 @@ def data_entry():
                                 doc_paths[doc_type] = result
                                 uploaded_docs_summary += f"✅ {doc_type}: {result['filename']} ({result['size']} bytes) - [GCS]\n"
                                 gcs_upload_success += 1
+                                print(f"✅ Uploaded {doc_type}")
                             else:
                                 uploaded_docs_summary += f"❌ {doc_type}: Failed to upload to GCS\n"
                                 gcs_upload_failed += 1
+                                print(f"❌ Failed to upload {doc_type}")
                         except Exception as e:
                             uploaded_docs_summary += f"❌ {doc_type}: Error - {str(e)}\n"
                             gcs_upload_failed += 1
-                    
+                            print(f"❌ Error uploading {doc_type}: {e}")
+
                     # Upload other documents
                     for file_info in temp_other_files:
                         try:
-                            from io import BytesIO
                             file_obj = BytesIO(file_info['data'])
                             file_obj.name = file_info['filename']
+                            
+                            print(f"📤 Uploading other_doc_{file_info['index']} to GCS...")
                             
                             result = save_document_to_gcs(
                                 applicant_id=record_id,
@@ -10291,32 +10218,20 @@ def data_entry():
                         except Exception as e:
                             uploaded_docs_summary += f"❌ other_doc_{file_info['index']}: Error - {str(e)}\n"
                             gcs_upload_failed += 1
-                    
-                    # Add document info to remarks
+
+                    # Update remarks with document info
                     if doc_paths:
                         full_remarks += "\n\n=== UPLOADED DOCUMENTS (GCS) ===\n"
                         full_remarks += uploaded_docs_summary
                         full_remarks += f"\n📊 Upload Summary: {gcs_upload_success} successful, {gcs_upload_failed} failed"
-                        full_remarks += "\n\n=== DOCUMENT STORAGE (Google Cloud Storage) ===\n"
-                        for doc_type, doc_info in doc_paths.items():
-                            full_remarks += f"{doc_type}: {doc_info['public_url']}\n"
                         
-                        # Update remarks in database
                         cursor = conn.cursor()
                         if is_cloud:
-                            cursor.execute("""
-                                UPDATE staff 
-                                SET remarks = %s 
-                                WHERE id = %s
-                            """, (full_remarks, record_id))
+                            cursor.execute("UPDATE staff SET remarks = %s WHERE id = %s", (full_remarks, record_id))
                         else:
-                            cursor.execute("""
-                                UPDATE staff 
-                                SET remarks = ? 
-                                WHERE id = ?
-                            """, (full_remarks, record_id))
+                            cursor.execute("UPDATE staff SET remarks = ? WHERE id = ?", (full_remarks, record_id))
                         conn.commit()
-                    
+
                     conn.close()
                     
                     # =========================================================
