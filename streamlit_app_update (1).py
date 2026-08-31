@@ -10231,17 +10231,113 @@ def data_entry():
                                 print(f"❌ Error reading other document {idx+1}: {e}")
 
                     # =========================================================
-                    # INSERT INTO STAFF TABLE (Get record_id first)
+                    # INSERT INTO STAFF TABLE
                     # =========================================================
                     conn = get_conn()
                     c = conn.cursor()
                     is_cloud = st.secrets.get("DATABASE_URL") is not None
 
                     if is_cloud:
-                        c.execute("""...""")  # Your INSERT statement
+                        # For PostgreSQL (Neon)
+                        c.execute("""
+                            INSERT INTO staff (
+                                name, gender, id_number, yob, ethnicity, disability, 
+                                contact, kcse, qualifications, subcounty, ward, 
+                                experience, remarks, created_at, created_by, 
+                                application_status, position_applied, application_date, 
+                                email, kcse_grade, graduation_year, 
+                                referee1_name, referee1_contact, referee2_name, referee2_contact,
+                                documents_ready, declaration_accepted, advertisement_ref
+                            ) VALUES (
+                                %s, %s, %s, %s, %s, %s,
+                                %s, %s, %s, %s, %s,
+                                %s, %s, %s, %s,
+                                %s, %s, %s,
+                                %s, %s, %s,
+                                %s, %s, %s, %s,
+                                %s, %s, %s
+                            ) RETURNING id
+                        """, (
+                            name,
+                            gender if gender != 'Select' else '',
+                            id_number,
+                            yob if yob else 0,
+                            ethnicity if ethnicity and ethnicity != "Select Ethnicity" else '',
+                            disability if disability and disability != "None" else '',
+                            contact if contact else '',
+                            mean_grade if mean_grade != 'Select' else '',
+                            qual_summary,
+                            subcounty if subcounty else '',
+                            home_ward if home_ward else '',
+                            f"{len(st.session_state.work_experience)} positions",
+                            full_remarks,
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            st.session_state.user["username"] if "user" in st.session_state and st.session_state.user else "applicant",
+                            'Pending',
+                            position_applied,
+                            datetime.now().strftime("%Y-%m-%d"),
+                            email if email else '',
+                            mean_grade if mean_grade != 'Select' else '',
+                            year_completed if year_completed else None,
+                            referee1_name if referee1_name else '',
+                            referee1_mobile if referee1_mobile else '',
+                            referee2_name if referee2_name else '',
+                            referee2_mobile if referee2_mobile else '',
+                            'Yes',
+                            'Yes' if declaration else 'No',
+                            advertisement_ref
+                        ))
                         record_id = c.fetchone()[0]
                     else:
-                        c.execute("""...""")  # Your INSERT statement
+                        # For SQLite
+                        c.execute("""
+                            INSERT INTO staff (
+                                name, gender, id_number, yob, ethnicity, disability, 
+                                contact, kcse, qualifications, subcounty, ward, 
+                                experience, remarks, created_at, created_by, 
+                                application_status, position_applied, application_date, 
+                                email, kcse_grade, graduation_year, 
+                                referee1_name, referee1_contact, referee2_name, referee2_contact,
+                                documents_ready, declaration_accepted, advertisement_ref
+                            ) VALUES (
+                                ?, ?, ?, ?, ?, ?,
+                                ?, ?, ?, ?, ?,
+                                ?, ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?, ?, ?,
+                                ?, ?, ?
+                            )
+                        """, (
+                            name,
+                            gender if gender != 'Select' else '',
+                            id_number,
+                            yob if yob else 0,
+                            ethnicity if ethnicity and ethnicity != "Select Ethnicity" else '',
+                            disability if disability and disability != "None" else '',
+                            contact if contact else '',
+                            mean_grade if mean_grade != 'Select' else '',
+                            qual_summary,
+                            subcounty if subcounty else '',
+                            home_ward if home_ward else '',
+                            f"{len(st.session_state.work_experience)} positions",
+                            full_remarks,
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            st.session_state.user["username"] if "user" in st.session_state and st.session_state.user else "applicant",
+                            'Pending',
+                            position_applied,
+                            datetime.now().strftime("%Y-%m-%d"),
+                            email if email else '',
+                            mean_grade if mean_grade != 'Select' else '',
+                            year_completed if year_completed else None,
+                            referee1_name if referee1_name else '',
+                            referee1_mobile if referee1_mobile else '',
+                            referee2_name if referee2_name else '',
+                            referee2_mobile if referee2_mobile else '',
+                            'Yes',
+                            'Yes' if declaration else 'No',
+                            advertisement_ref
+                        ))
                         record_id = c.lastrowid
 
                     conn.commit()
