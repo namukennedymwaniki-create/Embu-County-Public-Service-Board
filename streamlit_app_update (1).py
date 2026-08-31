@@ -10340,13 +10340,13 @@ def data_entry():
                     - ID Number: {id_number}
                     - Application Date: {application_date}
                     - Application ID: {record_id}
-                    - Documents Uploaded: {len(doc_paths) + len(other_doc_paths)} file(s)
-                    
+                    - Documents Uploaded: {len(doc_paths)} file(s)
+
                     **Next Steps:**
                     1. You will receive a confirmation SMS/Email
                     2. Shortlisted candidates will be contacted for interview
                     3. Keep your phone accessible for communication
-                    
+
                     Thank you for applying to Embu County Public Service Board!
                     """)
                     
