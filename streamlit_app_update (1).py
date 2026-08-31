@@ -17809,7 +17809,7 @@ def main():
         system_settings()
     elif menu == "🤖 AI Knowledge Base":
         ai_knowledge_base()
-      elif menu == "🔍 Test GCS Connection":
+    elif menu == "🔍 Test GCS Connection":
         test_gcs_page()
     elif menu == "👤 Users":
         users()
