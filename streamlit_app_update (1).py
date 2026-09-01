@@ -10665,7 +10665,7 @@ def data_entry():
                     - ID Number: {id_number}
                     - Application Date: {application_date}
                     - Application ID: {record_id}
-                    - Documents Uploaded: {len(doc_paths) + len(other_doc_paths)} file(s)
+                    - Documents Uploaded: {len(doc_paths)} file(s)
                     
                     **Next Steps:**
                     1. You will receive a confirmation SMS/Email
