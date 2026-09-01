@@ -10927,7 +10927,7 @@ def view_applicant_documents():
                                     
                                     # Preview image
                                     if doc['filename'].lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
-                                        st.image(file_data, caption=doc['filename'], use_container_width=True)
+                                        st.image(file_data, caption=doc['filename'], use_column_width=True)
                                 else:
                                     st.error("❌ File not found in cloud storage")
                             else:
