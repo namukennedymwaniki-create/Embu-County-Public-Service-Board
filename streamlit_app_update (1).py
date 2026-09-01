@@ -10378,11 +10378,9 @@ def data_entry():
                     # =========================================================
                     # SAVE DOCUMENTS TO GOOGLE CLOUD STORAGE
                     # =========================================================
-                    from io import BytesIO
-
                     doc_paths = {}
                     uploaded_docs_summary = ""
-
+                    
                     # Define document types and their file uploader variables
                     doc_mapping = {
                         'national_id': national_id,
@@ -10392,49 +10390,63 @@ def data_entry():
                         'degree_cert': degree_cert,
                         'prof_cert': prof_cert,
                     }
-
-                    # Store file data temporarily - store as bytes, not file objects
+                    
+                    # Also handle other_docs (multiple files)
+                    other_docs_list = []
+                    if other_docs:
+                        for doc_file in other_docs:
+                            other_docs_list.append(doc_file)
+                    
+                    # =========================================================
+                    # UPLOAD TO GCS - REPLACES LOCAL STORAGE
+                    # =========================================================
+                    # First, insert into staff table to get record_id
+                    # (The INSERT happens after this section in your code)
+                    # So we'll store the files temporarily and upload after getting record_id
+                    
+                    # Store file data temporarily
                     temp_files = {}
-                    temp_other_files = []
-
+                    
                     # Read and store file data for main documents
                     for doc_type, file_obj in doc_mapping.items():
                         if file_obj is not None:
                             try:
+                                # Read file data
                                 file_data = file_obj.read()
                                 file_size = len(file_data)
-                                filename = file_obj.name
+                                
                                 temp_files[doc_type] = {
                                     'data': file_data,
-                                    'filename': filename,
+                                    'filename': file_obj.name,
                                     'size': file_size
                                 }
-                            except Exception as e:
-                                print(f"❌ Error reading {doc_type}: {e}")
-
+                            except Exception as doc_error:
+                                st.warning(f"⚠️ Could not read {doc_type}: {str(doc_error)}")
+                    
                     # Read and store file data for other documents
-                    if other_docs:
-                        for idx, doc_file in enumerate(other_docs):
-                            try:
-                                file_data = doc_file.read()
-                                file_size = len(file_data)
-                                filename = doc_file.name
-                                temp_other_files.append({
-                                    'data': file_data,
-                                    'filename': filename,
-                                    'size': file_size,
-                                    'index': idx + 1
-                                })
-                            except Exception as e:
-                                print(f"❌ Error reading other document {idx+1}: {e}")
-
+                    temp_other_files = []
+                    for idx, doc_file in enumerate(other_docs_list):
+                        try:
+                            file_data = doc_file.read()
+                            file_size = len(file_data)
+                            temp_other_files.append({
+                                'data': file_data,
+                                'filename': doc_file.name,
+                                'size': file_size,
+                                'index': idx + 1
+                            })
+                        except Exception as doc_error:
+                            st.warning(f"⚠️ Could not read other document {idx+1}: {str(doc_error)}")
+                    
                     # =========================================================
-                    # INSERT INTO STAFF TABLE - UPDATED WITH ALL NEW FIELDS
+                    # INSERT INTO STAFF TABLE (This is where record_id is created)
                     # =========================================================
                     conn = get_conn()
                     c = conn.cursor()
+                    
+                    # Check if is_cloud is defined
                     is_cloud = st.secrets.get("DATABASE_URL") is not None
-
+                    
                     if is_cloud:
                         # For PostgreSQL (Neon)
                         c.execute("""
@@ -10445,14 +10457,7 @@ def data_entry():
                                 application_status, position_applied, application_date, 
                                 email, kcse_grade, graduation_year, 
                                 referee1_name, referee1_contact, referee2_name, referee2_contact,
-                                documents_ready, declaration_accepted, advertisement_ref,
-                                ncpwd_number, practicing_licence,
-                                in_public_service, public_institution_category, public_institution, 
-                                station, employment_number, present_substantive_post, 
-                                job_group, date_of_current_appointment, upgraded_post,
-                                effective_date_previous_appointment, secondment_organisation,
-                                secondment_designation, terms_of_service, 
-                                gross_monthly_salary, expected_gross_monthly_salary
+                                documents_ready, declaration_accepted, advertisement_ref
                             ) VALUES (
                                 %s, %s, %s, %s, %s, %s,
                                 %s, %s, %s, %s, %s,
@@ -10460,12 +10465,6 @@ def data_entry():
                                 %s, %s, %s,
                                 %s, %s, %s,
                                 %s, %s, %s, %s,
-                                %s, %s, %s,
-                                %s, %s,
-                                %s, %s, %s,
-                                %s, %s, %s,
-                                %s, %s, %s,
-                                %s, %s,
                                 %s, %s, %s
                             ) RETURNING id
                         """, (
@@ -10496,24 +10495,7 @@ def data_entry():
                             referee2_mobile if referee2_mobile else '',
                             'Yes',
                             'Yes' if declaration else 'No',
-                            advertisement_ref,
-                            ncpwd_number if ncpwd_number else None,
-                            practicing_licence if practicing_licence else None,
-                            'Yes' if in_public_service == "Yes" else 'No',
-                            public_institution_category if public_institution_category != 'Select' else None,
-                            public_institution if public_institution else None,
-                            station if station else None,
-                            employment_number if employment_number else None,
-                            present_substantive_post if present_substantive_post else None,
-                            job_group if job_group else None,
-                            date_of_current_appointment.strftime("%Y-%m-%d") if date_of_current_appointment else None,
-                            upgraded_post if upgraded_post else None,
-                            effective_date_previous_appointment.strftime("%Y-%m-%d") if effective_date_previous_appointment else None,
-                            secondment_organisation if secondment_organisation else None,
-                            secondment_designation if secondment_designation else None,
-                            terms_of_service if terms_of_service else None,
-                            gross_monthly_salary if gross_monthly_salary else 0,
-                            expected_gross_monthly_salary if expected_gross_monthly_salary else 0
+                            advertisement_ref
                         ))
                         record_id = c.fetchone()[0]
                     else:
@@ -10526,14 +10508,7 @@ def data_entry():
                                 application_status, position_applied, application_date, 
                                 email, kcse_grade, graduation_year, 
                                 referee1_name, referee1_contact, referee2_name, referee2_contact,
-                                documents_ready, declaration_accepted, advertisement_ref,
-                                ncpwd_number, practicing_licence,
-                                in_public_service, public_institution_category, public_institution, 
-                                station, employment_number, present_substantive_post, 
-                                job_group, date_of_current_appointment, upgraded_post,
-                                effective_date_previous_appointment, secondment_organisation,
-                                secondment_designation, terms_of_service, 
-                                gross_monthly_salary, expected_gross_monthly_salary
+                                documents_ready, declaration_accepted, advertisement_ref
                             ) VALUES (
                                 ?, ?, ?, ?, ?, ?,
                                 ?, ?, ?, ?, ?,
@@ -10541,12 +10516,6 @@ def data_entry():
                                 ?, ?, ?,
                                 ?, ?, ?,
                                 ?, ?, ?, ?,
-                                ?, ?, ?,
-                                ?, ?,
-                                ?, ?, ?,
-                                ?, ?, ?,
-                                ?, ?, ?,
-                                ?, ?,
                                 ?, ?, ?
                             )
                         """, (
@@ -10577,39 +10546,31 @@ def data_entry():
                             referee2_mobile if referee2_mobile else '',
                             'Yes',
                             'Yes' if declaration else 'No',
-                            advertisement_ref,
-                            ncpwd_number if ncpwd_number else None,
-                            practicing_licence if practicing_licence else None,
-                            'Yes' if in_public_service == "Yes" else 'No',
-                            public_institution_category if public_institution_category != 'Select' else None,
-                            public_institution if public_institution else None,
-                            station if station else None,
-                            employment_number if employment_number else None,
-                            present_substantive_post if present_substantive_post else None,
-                            job_group if job_group else None,
-                            date_of_current_appointment.strftime("%Y-%m-%d") if date_of_current_appointment else None,
-                            upgraded_post if upgraded_post else None,
-                            effective_date_previous_appointment.strftime("%Y-%m-%d") if effective_date_previous_appointment else None,
-                            secondment_organisation if secondment_organisation else None,
-                            secondment_designation if secondment_designation else None,
-                            terms_of_service if terms_of_service else None,
-                            gross_monthly_salary if gross_monthly_salary else 0,
-                            expected_gross_monthly_salary if expected_gross_monthly_salary else 0
+                            advertisement_ref
                         ))
                         record_id = c.lastrowid
-
+                    
                     conn.commit()
-                    print(f"✅ Staff record created with ID: {record_id}")
-
+                    
                     # =========================================================
-                    # NOW UPLOAD DOCUMENTS TO GCS
+                    # NOW UPLOAD DOCUMENTS TO GCS USING THE record_id
                     # =========================================================
                     gcs_upload_success = 0
                     gcs_upload_failed = 0
-
+                    
                     # Upload main documents
                     for doc_type, file_info in temp_files.items():
                         try:
+                            result = save_document_to_gcs(
+                                applicant_id=record_id,
+                                doc_type=doc_type,
+                                file_obj=file_info,  # Pass the file info
+                                applicant_name=name
+                            )
+                            
+                            # We need to pass the file properly - let's create a simple object
+                            # Since we already read the file, we need to create a file-like object
+                            from io import BytesIO
                             file_obj = BytesIO(file_info['data'])
                             file_obj.name = file_info['filename']
                             
@@ -10630,10 +10591,11 @@ def data_entry():
                         except Exception as e:
                             uploaded_docs_summary += f"❌ {doc_type}: Error - {str(e)}\n"
                             gcs_upload_failed += 1
-
+                    
                     # Upload other documents
                     for file_info in temp_other_files:
                         try:
+                            from io import BytesIO
                             file_obj = BytesIO(file_info['data'])
                             file_obj.name = file_info['filename']
                             
@@ -10654,20 +10616,32 @@ def data_entry():
                         except Exception as e:
                             uploaded_docs_summary += f"❌ other_doc_{file_info['index']}: Error - {str(e)}\n"
                             gcs_upload_failed += 1
-
-                    # Update remarks with document info
+                    
+                    # Add document info to remarks
                     if doc_paths:
                         full_remarks += "\n\n=== UPLOADED DOCUMENTS (GCS) ===\n"
                         full_remarks += uploaded_docs_summary
                         full_remarks += f"\n📊 Upload Summary: {gcs_upload_success} successful, {gcs_upload_failed} failed"
+                        full_remarks += "\n\n=== DOCUMENT STORAGE (Google Cloud Storage) ===\n"
+                        for doc_type, doc_info in doc_paths.items():
+                            full_remarks += f"{doc_type}: {doc_info['public_url']}\n"
                         
+                        # Update remarks in database
                         cursor = conn.cursor()
                         if is_cloud:
-                            cursor.execute("UPDATE staff SET remarks = %s WHERE id = %s", (full_remarks, record_id))
+                            cursor.execute("""
+                                UPDATE staff 
+                                SET remarks = %s 
+                                WHERE id = %s
+                            """, (full_remarks, record_id))
                         else:
-                            cursor.execute("UPDATE staff SET remarks = ? WHERE id = ?", (full_remarks, record_id))
+                            cursor.execute("""
+                                UPDATE staff 
+                                SET remarks = ? 
+                                WHERE id = ?
+                            """, (full_remarks, record_id))
                         conn.commit()
-
+                    
                     conn.close()
                     
                     # =========================================================
@@ -10691,13 +10665,13 @@ def data_entry():
                     - ID Number: {id_number}
                     - Application Date: {application_date}
                     - Application ID: {record_id}
-                    - Documents Uploaded: {len(doc_paths)} file(s)
-
+                    - Documents Uploaded: {len(doc_paths) + len(other_doc_paths)} file(s)
+                    
                     **Next Steps:**
                     1. You will receive a confirmation SMS/Email
                     2. Shortlisted candidates will be contacted for interview
                     3. Keep your phone accessible for communication
-
+                    
                     Thank you for applying to Embu County Public Service Board!
                     """)
                     
