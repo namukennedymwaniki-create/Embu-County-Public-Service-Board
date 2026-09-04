@@ -13062,102 +13062,199 @@ def edit_applicant():
                     <small>⚠️ <strong>Note:</strong> Fields marked with <span style="color: red;">*</span> are required</small>
                 </div>
                 """, unsafe_allow_html=True)
-                
+
                 col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:    
+                with col2:
                     if st.button("💾 SAVE CHANGES", use_container_width=True, type="primary"):
                         try:
                             cursor = conn.cursor()
                             
                             # =========================================================
-                            # BUILD REMARKS (Same as registration form)
+                            # INITIALIZE ALL VARIABLES WITH DEFAULT VALUES
                             # =========================================================
-                            edit_full_remarks = f"""
-                    === APPLICATION DETAILS ===
-                    Position: {edit_position_applied}
-                    Advert Ref: {edit_advertisement_ref}
-                    Department: {edit_department}
-                    Source: {edit_source}
-                    Application Date: {edit_application_date}
-
-                    === PERSONAL INFORMATION ===
-                    Name: {edit_name}
-                    Gender: {edit_gender if edit_gender != 'Select' else 'N/A'}
-                    ID Number: {edit_id_number}
-                    Year of Birth: {edit_yob}
-                    KRA PIN: {edit_kra_pin if edit_kra_pin else 'N/A'}
-                    Ethnicity: {edit_ethnicity if edit_ethnicity != 'Select Ethnicity' else 'N/A'}
-                    Disability: {edit_disability if edit_disability != 'None' else 'N/A'}
-                    Nationality: {edit_nationality if edit_nationality != 'Select' else 'N/A'}
-                    Home County: {edit_home_county if edit_home_county else 'N/A'}
-                    Home Constituency: {edit_home_constituency if edit_home_constituency else 'N/A'}
-                    Sub County: {edit_subcounty if edit_subcounty else 'N/A'}
-                    Home Ward: {edit_home_ward if edit_home_ward else 'N/A'}
-                    Postal Address: {edit_postal_address if edit_postal_address else 'N/A'}
-                    Postal Code: {edit_postal_code if edit_postal_code else 'N/A'}
-                    Town: {edit_town if edit_town else 'N/A'}
-                    Phone: {edit_contact if edit_contact else 'N/A'}
-                    Email: {edit_email if edit_email else 'N/A'}
-                    Practicing Licence: {edit_practicing_licence if edit_practicing_licence else 'N/A'}
-
-                    === PUBLIC SERVICE ===
-                    In Public Service: {edit_in_public_service}
-                    Institution Category: {edit_public_institution_category if edit_public_institution_category and edit_public_institution_category != 'Select' else 'N/A'}
-                    Institution: {edit_public_institution if edit_public_institution else 'N/A'}
-                    Station: {edit_station if edit_station else 'N/A'}
-                    Employment No.: {edit_employment_number if edit_employment_number else 'N/A'}
-                    Present Substantive Post: {edit_present_substantive_post if edit_present_substantive_post else 'N/A'}
-                    Job Group: {edit_job_group if edit_job_group else 'N/A'}
-                    Date of Current Appointment: {edit_date_of_current_appointment.strftime('%Y-%m-%d') if edit_date_of_current_appointment else 'N/A'}
-                    Upgraded Post: {edit_upgraded_post if edit_upgraded_post else 'N/A'}
-                    Effective Date Previous Appointment: {edit_effective_date_previous_appointment.strftime('%Y-%m-%d') if edit_effective_date_previous_appointment else 'N/A'}
-                    Secondment Organisation: {edit_secondment_organisation if edit_secondment_organisation else 'N/A'}
-                    Secondment Designation: {edit_secondment_designation if edit_secondment_designation else 'N/A'}
-                    Terms of Service: {edit_terms_of_service if edit_terms_of_service else 'N/A'}
-                    Gross Monthly Salary: {f"Kshs. {edit_gross_monthly_salary:,.0f}" if edit_gross_monthly_salary > 0 else 'N/A'}
-                    Expected Gross Monthly Salary: {f"Kshs. {edit_expected_gross_monthly_salary:,.0f}" if edit_expected_gross_monthly_salary > 0 else 'N/A'}
-
-                    === LEGAL DECLARATIONS ===
-                    Convicted: {edit_convicted}
-                    Dismissed: {edit_dismissed}
-
-                    === EDUCATION ===
-                    KCSE School: {edit_secondary_school if edit_secondary_school else 'N/A'}
-                    KCSE Index: {edit_index_number if edit_index_number else 'N/A'}
-                    KCSE Grade: {edit_mean_grade if edit_mean_grade != 'Select' else 'N/A'}
-                    KCSE Cert No: {edit_certificate_no if edit_certificate_no else 'N/A'}
-                    KCSE Year: {edit_year_completed if edit_year_completed else 'N/A'}
-
-                    === QUALIFICATIONS ===
-                    Academic Qualifications: {len(st.session_state.edit_academic_qualifications)} records
-                    Professional Qualifications: {len(st.session_state.edit_professional_qualifications)} records
-                    Other Courses: {len(st.session_state.edit_other_courses)} records
-                    Professional Memberships: {len(st.session_state.edit_professional_memberships)} records
-
-                    === WORK EXPERIENCE ===
-                    Number of Positions: {len(st.session_state.edit_work_experience)} records
-
-                    === REFEREES ===
-                    Referee 1: {edit_referee1_name if edit_referee1_name else 'N/A'} - {edit_referee1_occupation if edit_referee1_occupation else 'N/A'}
-                    Referee 2: {edit_referee2_name if edit_referee2_name else 'N/A'} - {edit_referee2_occupation if edit_referee2_occupation else 'N/A'}
-                    Referee 3: {edit_referee3_name if edit_referee3_name else 'N/A'} - {edit_referee3_occupation if edit_referee3_occupation else 'N/A'}
-
-                    === ADDITIONAL ===
-                    {edit_remarks if edit_remarks else 'N/A'}
-                    """
+                            # Position tab
+                            edit_position_applied = position_applied if 'position_applied' in locals() else app.get('position_applied', '')
+                            edit_advertisement_ref = advertisement_ref if 'advertisement_ref' in locals() else app.get('advertisement_ref', '')
+                            edit_department = department if 'department' in locals() else app.get('department', '')
+                            edit_application_date = application_date if 'application_date' in locals() else datetime.now().date()
+                            edit_source = source_of_info if 'source_of_info' in locals() else app.get('source_of_info', '')
+                            edit_status = application_status if 'application_status' in locals() else app.get('application_status', 'Pending')
+                            edit_interview_date = interview_date if 'interview_date' in locals() else None
+                            edit_interview_score = interview_score if 'interview_score' in locals() else 0
+                            edit_shortlist_date = shortlist_date if 'shortlist_date' in locals() else None
                             
-                            # Build qualifications summary (same as registration)
-                            edit_qualifications = f"KCSE: {edit_mean_grade if edit_mean_grade != 'Select' else 'N/A'} ({edit_year_completed})"
+                            # Personal Information tab
+                            edit_name = name if 'name' in locals() else app.get('name', '')
+                            edit_gender = gender if 'gender' in locals() else app.get('gender', '')
+                            edit_id_number = id_number if 'id_number' in locals() else app.get('id_number', '')
+                            edit_yob = yob if 'yob' in locals() else app.get('yob', 1990)
+                            edit_kra_pin = kra_pin if 'kra_pin' in locals() else app.get('kra_pin', '')
+                            edit_ethnicity = ethnicity if 'ethnicity' in locals() else app.get('ethnicity', '')
+                            edit_disability = disability if 'disability' in locals() else app.get('disability', '')
+                            edit_ncpwd_number = ncpwd_number if 'ncpwd_number' in locals() else app.get('ncpwd_number', '')
+                            edit_nationality = nationality if 'nationality' in locals() else app.get('nationality', '')
+                            edit_home_county = home_county if 'home_county' in locals() else app.get('home_county', '')
+                            edit_home_constituency = home_constituency if 'home_constituency' in locals() else app.get('home_constituency', '')
+                            edit_subcounty = subcounty if 'subcounty' in locals() else app.get('subcounty', '')
+                            edit_home_ward = home_ward if 'home_ward' in locals() else app.get('home_ward', '')
+                            edit_postal_address = postal_address if 'postal_address' in locals() else app.get('postal_address', '')
+                            edit_postal_code = postal_code if 'postal_code' in locals() else app.get('postal_code', '')
+                            edit_town = town if 'town' in locals() else app.get('town', '')
+                            edit_practicing_licence = practicing_licence if 'practicing_licence' in locals() else app.get('practicing_licence', '')
+                            edit_contact = contact if 'contact' in locals() else app.get('contact', '')
+                            edit_email = email if 'email' in locals() else app.get('email', '')
+                            edit_alt_contact_name = alt_contact_name if 'alt_contact_name' in locals() else app.get('alt_contact_name', '')
+                            edit_alt_contact_mobile = alt_contact_mobile if 'alt_contact_mobile' in locals() else app.get('alt_contact_mobile', '')
+                            
+                            # Public Service tab - ALWAYS initialize these
+                            edit_in_public_service = in_public_service if 'in_public_service' in locals() else app.get('in_public_service', 'No')
+                            edit_public_institution_category = public_institution_category if 'public_institution_category' in locals() else app.get('public_institution_category', '')
+                            edit_public_institution = public_institution if 'public_institution' in locals() else app.get('public_institution', '')
+                            edit_station = station if 'station' in locals() else app.get('station', '')
+                            edit_employment_number = employment_number if 'employment_number' in locals() else app.get('employment_number', '')
+                            edit_present_substantive_post = present_substantive_post if 'present_substantive_post' in locals() else app.get('present_substantive_post', '')
+                            edit_job_group = job_group if 'job_group' in locals() else app.get('job_group', '')
+                            edit_date_of_current_appointment = date_of_current_appointment if 'date_of_current_appointment' in locals() else None
+                            edit_upgraded_post = upgraded_post if 'upgraded_post' in locals() else app.get('upgraded_post', '')
+                            edit_effective_date_previous_appointment = effective_date_previous_appointment if 'effective_date_previous_appointment' in locals() else None
+                            edit_secondment_organisation = secondment_organisation if 'secondment_organisation' in locals() else app.get('secondment_organisation', '')
+                            edit_secondment_designation = secondment_designation if 'secondment_designation' in locals() else app.get('secondment_designation', '')
+                            edit_terms_of_service = terms_of_service if 'terms_of_service' in locals() else app.get('terms_of_service', '')
+                            edit_gross_monthly_salary = gross_monthly_salary if 'gross_monthly_salary' in locals() else app.get('gross_monthly_salary', 0)
+                            edit_expected_gross_monthly_salary = expected_gross_monthly_salary if 'expected_gross_monthly_salary' in locals() else app.get('expected_gross_monthly_salary', 0)
+                            edit_convicted = convicted if 'convicted' in locals() else app.get('convicted', 'No')
+                            edit_dismissed = dismissed if 'dismissed' in locals() else app.get('dismissed', 'No')
+                            
+                            # Education tab
+                            edit_secondary_school = secondary_school if 'secondary_school' in locals() else app.get('secondary_school', '')
+                            edit_index_number = index_number if 'index_number' in locals() else app.get('index_number', '')
+                            edit_mean_grade = mean_grade if 'mean_grade' in locals() else app.get('kcse_grade', '')
+                            edit_certificate_no = certificate_no if 'certificate_no' in locals() else app.get('certificate_no', '')
+                            edit_year_completed = year_completed if 'year_completed' in locals() else app.get('year_completed', 2000)
+                            edit_kcse = kcse if 'kcse' in locals() else app.get('kcse', '')
+                            
+                            # Referees tab
+                            edit_referee1_name = referee1_name if 'referee1_name' in locals() else app.get('referee1_name', '')
+                            edit_referee1_occupation = referee1_occupation if 'referee1_occupation' in locals() else app.get('referee1_occupation', '')
+                            edit_referee1_postal_address = referee1_postal_address if 'referee1_postal_address' in locals() else app.get('referee1_postal_address', '')
+                            edit_referee1_post_code = referee1_post_code if 'referee1_post_code' in locals() else app.get('referee1_post_code', '')
+                            edit_referee1_city = referee1_city if 'referee1_city' in locals() else app.get('referee1_city', '')
+                            edit_referee1_mobile = referee1_mobile if 'referee1_mobile' in locals() else app.get('referee1_mobile', '')
+                            edit_referee1_email = referee1_email if 'referee1_email' in locals() else app.get('referee1_email', '')
+                            edit_referee1_period = referee1_period if 'referee1_period' in locals() else app.get('referee1_period', '')
+                            edit_referee2_name = referee2_name if 'referee2_name' in locals() else app.get('referee2_name', '')
+                            edit_referee2_occupation = referee2_occupation if 'referee2_occupation' in locals() else app.get('referee2_occupation', '')
+                            edit_referee2_postal_address = referee2_postal_address if 'referee2_postal_address' in locals() else app.get('referee2_postal_address', '')
+                            edit_referee2_post_code = referee2_post_code if 'referee2_post_code' in locals() else app.get('referee2_post_code', '')
+                            edit_referee2_city = referee2_city if 'referee2_city' in locals() else app.get('referee2_city', '')
+                            edit_referee2_mobile = referee2_mobile if 'referee2_mobile' in locals() else app.get('referee2_mobile', '')
+                            edit_referee2_email = referee2_email if 'referee2_email' in locals() else app.get('referee2_email', '')
+                            edit_referee2_period = referee2_period if 'referee2_period' in locals() else app.get('referee2_period', '')
+                            edit_referee3_name = referee3_name if 'referee3_name' in locals() else app.get('referee3_name', '')
+                            edit_referee3_occupation = referee3_occupation if 'referee3_occupation' in locals() else app.get('referee3_occupation', '')
+                            edit_referee3_postal_address = referee3_postal_address if 'referee3_postal_address' in locals() else app.get('referee3_postal_address', '')
+                            edit_referee3_post_code = referee3_post_code if 'referee3_post_code' in locals() else app.get('referee3_post_code', '')
+                            edit_referee3_city = referee3_city if 'referee3_city' in locals() else app.get('referee3_city', '')
+                            edit_referee3_mobile = referee3_mobile if 'referee3_mobile' in locals() else app.get('referee3_mobile', '')
+                            edit_referee3_email = referee3_email if 'referee3_email' in locals() else app.get('referee3_email', '')
+                            edit_referee3_period = referee3_period if 'referee3_period' in locals() else app.get('referee3_period', '')
+                            
+                            # Declaration
+                            edit_declaration = declaration if 'declaration' in locals() else app.get('declaration_accepted') == "Yes"
+                            edit_remarks = remarks if 'remarks' in locals() else app.get('remarks', '')
+                            
+                            # =========================================================
+                            # BUILD QUALIFICATION SUMMARY
+                            # =========================================================
+                            edit_qual_summary = f"KCSE: {edit_mean_grade if edit_mean_grade != 'Select' else 'N/A'} ({edit_year_completed})"
                             if st.session_state.edit_academic_qualifications:
                                 for acad in st.session_state.edit_academic_qualifications:
                                     if acad.get('level') and acad.get('institution') and acad.get('level') != 'Select':
-                                        edit_qualifications += f" | {acad['level']}: {acad['institution']} ({acad.get('year', '')})"
+                                        edit_qual_summary += f" | {acad['level']}: {acad['institution']} ({acad.get('year', '')})"
                             
                             # Build experience summary
                             edit_experience = f"{len(st.session_state.edit_work_experience)} positions"
                             
                             # =========================================================
-                            # UPDATE - MATCHES THE INSERT EXACTLY
+                            # BUILD COMPREHENSIVE REMARKS
+                            # =========================================================
+                            edit_full_remarks = f"""
+                === APPLICATION DETAILS ===
+                Position: {edit_position_applied}
+                Advert Ref: {edit_advertisement_ref}
+                Department: {edit_department}
+                Source: {edit_source}
+                Application Date: {edit_application_date}
+
+                === PERSONAL INFORMATION ===
+                Name: {edit_name}
+                Gender: {edit_gender if edit_gender != 'Select' else 'N/A'}
+                ID Number: {edit_id_number}
+                Year of Birth: {edit_yob}
+                KRA PIN: {edit_kra_pin if edit_kra_pin else 'N/A'}
+                Ethnicity: {edit_ethnicity if edit_ethnicity != 'Select Ethnicity' else 'N/A'}
+                Disability: {edit_disability if edit_disability != 'None' else 'N/A'}
+                NCPWD Number: {edit_ncpwd_number if edit_ncpwd_number else 'N/A'}
+                Nationality: {edit_nationality if edit_nationality != 'Select' else 'N/A'}
+                Home County: {edit_home_county if edit_home_county else 'N/A'}
+                Home Constituency: {edit_home_constituency if edit_home_constituency else 'N/A'}
+                Sub County: {edit_subcounty if edit_subcounty else 'N/A'}
+                Home Ward: {edit_home_ward if edit_home_ward else 'N/A'}
+                Postal Address: {edit_postal_address if edit_postal_address else 'N/A'}
+                Postal Code: {edit_postal_code if edit_postal_code else 'N/A'}
+                Town: {edit_town if edit_town else 'N/A'}
+                Phone: {edit_contact if edit_contact else 'N/A'}
+                Email: {edit_email if edit_email else 'N/A'}
+                Practicing Licence: {edit_practicing_licence if edit_practicing_licence else 'N/A'}
+
+                === PUBLIC SERVICE ===
+                In Public Service: {edit_in_public_service}
+                Institution Category: {edit_public_institution_category if edit_public_institution_category and edit_public_institution_category != 'Select' else 'N/A'}
+                Institution: {edit_public_institution if edit_public_institution else 'N/A'}
+                Station: {edit_station if edit_station else 'N/A'}
+                Employment No.: {edit_employment_number if edit_employment_number else 'N/A'}
+                Present Substantive Post: {edit_present_substantive_post if edit_present_substantive_post else 'N/A'}
+                Job Group: {edit_job_group if edit_job_group else 'N/A'}
+                Date of Current Appointment: {edit_date_of_current_appointment.strftime('%Y-%m-%d') if edit_date_of_current_appointment else 'N/A'}
+                Upgraded Post: {edit_upgraded_post if edit_upgraded_post else 'N/A'}
+                Effective Date Previous Appointment: {edit_effective_date_previous_appointment.strftime('%Y-%m-%d') if edit_effective_date_previous_appointment else 'N/A'}
+                Secondment Organisation: {edit_secondment_organisation if edit_secondment_organisation else 'N/A'}
+                Secondment Designation: {edit_secondment_designation if edit_secondment_designation else 'N/A'}
+                Terms of Service: {edit_terms_of_service if edit_terms_of_service else 'N/A'}
+                Gross Monthly Salary: {f"Kshs. {edit_gross_monthly_salary:,.0f}" if edit_gross_monthly_salary > 0 else 'N/A'}
+                Expected Gross Monthly Salary: {f"Kshs. {edit_expected_gross_monthly_salary:,.0f}" if edit_expected_gross_monthly_salary > 0 else 'N/A'}
+
+                === LEGAL DECLARATIONS ===
+                Convicted: {edit_convicted}
+                Dismissed: {edit_dismissed}
+
+                === EDUCATION ===
+                KCSE School: {edit_secondary_school if edit_secondary_school else 'N/A'}
+                KCSE Index: {edit_index_number if edit_index_number else 'N/A'}
+                KCSE Grade: {edit_mean_grade if edit_mean_grade != 'Select' else 'N/A'}
+                KCSE Cert No: {edit_certificate_no if edit_certificate_no else 'N/A'}
+                KCSE Year: {edit_year_completed if edit_year_completed else 'N/A'}
+
+                === QUALIFICATIONS ===
+                Academic Qualifications: {len(st.session_state.edit_academic_qualifications)} records
+                Professional Qualifications: {len(st.session_state.edit_professional_qualifications)} records
+                Other Courses: {len(st.session_state.edit_other_courses)} records
+                Professional Memberships: {len(st.session_state.edit_professional_memberships)} records
+
+                === WORK EXPERIENCE ===
+                Number of Positions: {len(st.session_state.edit_work_experience)} records
+
+                === REFEREES ===
+                Referee 1: {edit_referee1_name if edit_referee1_name else 'N/A'} - {edit_referee1_occupation if edit_referee1_occupation else 'N/A'}
+                Referee 2: {edit_referee2_name if edit_referee2_name else 'N/A'} - {edit_referee2_occupation if edit_referee2_occupation else 'N/A'}
+                Referee 3: {edit_referee3_name if edit_referee3_name else 'N/A'} - {edit_referee3_occupation if edit_referee3_occupation else 'N/A'}
+
+                === ADDITIONAL ===
+                {edit_remarks if edit_remarks else 'N/A'}
+                """
+                            
+                            # =========================================================
+                            # UPDATE STAFF TABLE - MATCHES INSERT EXACTLY
                             # =========================================================
                             update_query = """
                                 UPDATE staff SET 
@@ -13199,7 +13296,7 @@ def edit_applicant():
                                 edit_disability if edit_disability != 'None' else '',              # disability
                                 edit_contact,                                                       # contact
                                 edit_kcse,                                                          # kcse
-                                edit_qualifications,                                                # qualifications
+                                edit_qual_summary,                                                  # qualifications
                                 edit_subcounty,                                                     # subcounty
                                 edit_home_ward,                                                     # ward
                                 edit_experience,                                                    # experience
@@ -13220,14 +13317,17 @@ def edit_applicant():
                                 int(app['id'])                                                      # WHERE id = ?
                             )
                             
+                            # Execute the update
                             if is_cloud:
                                 cursor.execute(update_query, values)
                             else:
+                                # Convert %s to ? for SQLite
                                 sqlite_query = update_query.replace('%s', '?')
                                 cursor.execute(sqlite_query, values)
                             
                             conn.commit()
                             
+                            # Audit log
                             log_audit(
                                 st.session_state.user['username'] if "user" in st.session_state and st.session_state.user else "admin",
                                 "EDIT_APPLICANT",
