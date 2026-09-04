@@ -13254,7 +13254,7 @@ def edit_applicant():
                 """
                             
                             # =========================================================
-                            # UPDATE STAFF TABLE - MATCHES INSERT EXACTLY
+                            # UPDATE STAFF TABLE - WITH NUMPY CONVERSION
                             # =========================================================
                             update_query = """
                                 UPDATE staff SET 
@@ -13286,45 +13286,56 @@ def edit_applicant():
                                     advertisement_ref = %s
                                 WHERE id = %s
                             """
-                            
+
+                            # Helper function to convert numpy types
+                            def to_python_value(val):
+                                if val is None:
+                                    return None
+                                if isinstance(val, (np.int64, np.int32)):
+                                    return int(val)
+                                if isinstance(val, (np.float64, np.float32)):
+                                    return float(val)
+                                if isinstance(val, pd.Timestamp):
+                                    return val.to_pydatetime()
+                                return val
+
                             values = (
-                                edit_name,                                                          # name
-                                edit_gender if edit_gender != 'Select' else '',                    # gender
-                                edit_id_number,                                                     # id_number
-                                edit_yob,                                                           # yob
-                                edit_ethnicity if edit_ethnicity != 'Select Ethnicity' else '',    # ethnicity
-                                edit_disability if edit_disability != 'None' else '',              # disability
-                                edit_contact,                                                       # contact
-                                edit_kcse,                                                          # kcse
-                                edit_qual_summary,                                                  # qualifications
-                                edit_subcounty,                                                     # subcounty
-                                edit_home_ward,                                                     # ward
-                                edit_experience,                                                    # experience
-                                edit_full_remarks,                                                  # remarks
-                                edit_status,                                                        # application_status
-                                edit_position_applied,                                              # position_applied
-                                edit_application_date.strftime("%Y-%m-%d") if edit_application_date else None,  # application_date
-                                edit_email,                                                         # email
-                                edit_mean_grade if edit_mean_grade != 'Select' else '',            # kcse_grade
-                                edit_year_completed if edit_year_completed else None,              # graduation_year
-                                edit_referee1_name if edit_referee1_name else '',                  # referee1_name
-                                edit_referee1_mobile if edit_referee1_mobile else '',              # referee1_contact
-                                edit_referee2_name if edit_referee2_name else '',                  # referee2_name
-                                edit_referee2_mobile if edit_referee2_mobile else '',              # referee2_contact
-                                'Yes',                                                              # documents_ready
-                                'Yes' if edit_declaration else 'No',                               # declaration_accepted
-                                edit_advertisement_ref if edit_advertisement_ref else '',          # advertisement_ref
-                                int(app['id'])                                                      # WHERE id = ?
+                                edit_name,
+                                edit_gender if edit_gender != 'Select' else '',
+                                edit_id_number,
+                                to_python_value(edit_yob),
+                                edit_ethnicity if edit_ethnicity != 'Select Ethnicity' else '',
+                                edit_disability if edit_disability != 'None' else '',
+                                edit_contact,
+                                edit_kcse,
+                                edit_qual_summary,
+                                edit_subcounty,
+                                edit_home_ward,
+                                edit_experience,
+                                edit_full_remarks,
+                                edit_status,
+                                edit_position_applied,
+                                edit_application_date.strftime("%Y-%m-%d") if edit_application_date else None,
+                                edit_email,
+                                edit_mean_grade if edit_mean_grade != 'Select' else '',
+                                to_python_value(edit_year_completed),
+                                edit_referee1_name if edit_referee1_name else '',
+                                edit_referee1_mobile if edit_referee1_mobile else '',
+                                edit_referee2_name if edit_referee2_name else '',
+                                edit_referee2_mobile if edit_referee2_mobile else '',
+                                'Yes',
+                                'Yes' if edit_declaration else 'No',
+                                edit_advertisement_ref if edit_advertisement_ref else '',
+                                to_python_value(app['id'])  # <-- Convert numpy.int64 to Python int
                             )
-                            
-                            # Execute the update
+
                             if is_cloud:
                                 cursor.execute(update_query, values)
                             else:
                                 # Convert %s to ? for SQLite
                                 sqlite_query = update_query.replace('%s', '?')
                                 cursor.execute(sqlite_query, values)
-                            
+
                             conn.commit()
                             
                             # Audit log
