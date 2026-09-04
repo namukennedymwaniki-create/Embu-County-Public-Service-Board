@@ -13064,10 +13064,103 @@ def edit_applicant():
                 """, unsafe_allow_html=True)
                 
                 col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
+                with col2:    
                     if st.button("💾 SAVE CHANGES", use_container_width=True, type="primary"):
                         try:
                             cursor = conn.cursor()
+                            
+                            # =========================================================
+                            # INITIALIZE ALL VARIABLES WITH DEFAULT VALUES
+                            # =========================================================
+                            # Position tab
+                            edit_position_applied = position_applied if 'position_applied' in locals() else ''
+                            edit_advertisement_ref = advertisement_ref if 'advertisement_ref' in locals() else ''
+                            edit_department = department if 'department' in locals() else ''
+                            edit_application_date = application_date if 'application_date' in locals() else datetime.now().date()
+                            edit_source = source_of_info if 'source_of_info' in locals() else ''
+                            edit_status = application_status if 'application_status' in locals() else 'Pending'
+                            edit_interview_date = interview_date if 'interview_date' in locals() else None
+                            edit_interview_score = interview_score if 'interview_score' in locals() else 0
+                            edit_shortlist_date = shortlist_date if 'shortlist_date' in locals() else None
+                            
+                            # Personal Information tab
+                            edit_name = name if 'name' in locals() else ''
+                            edit_gender = gender if 'gender' in locals() else ''
+                            edit_id_number = id_number if 'id_number' in locals() else ''
+                            edit_yob = yob if 'yob' in locals() else 1990
+                            edit_kra_pin = kra_pin if 'kra_pin' in locals() else ''
+                            edit_ethnicity = ethnicity if 'ethnicity' in locals() else ''
+                            edit_disability = disability if 'disability' in locals() else ''
+                            edit_ncpwd_number = ncpwd_number if 'ncpwd_number' in locals() else ''
+                            edit_nationality = nationality if 'nationality' in locals() else ''
+                            edit_home_county = home_county if 'home_county' in locals() else ''
+                            edit_home_constituency = home_constituency if 'home_constituency' in locals() else ''
+                            edit_subcounty = subcounty if 'subcounty' in locals() else ''
+                            edit_home_ward = home_ward if 'home_ward' in locals() else ''
+                            edit_postal_address = postal_address if 'postal_address' in locals() else ''
+                            edit_postal_code = postal_code if 'postal_code' in locals() else ''
+                            edit_town = town if 'town' in locals() else ''
+                            edit_practicing_licence = practicing_licence if 'practicing_licence' in locals() else ''
+                            edit_contact = contact if 'contact' in locals() else ''
+                            edit_email = email if 'email' in locals() else ''
+                            edit_alt_contact_name = alt_contact_name if 'alt_contact_name' in locals() else ''
+                            edit_alt_contact_mobile = alt_contact_mobile if 'alt_contact_mobile' in locals() else ''
+                            
+                            # Public Service tab
+                            edit_in_public_service = in_public_service if 'in_public_service' in locals() else "No"
+                            edit_public_institution_category = public_institution_category if 'public_institution_category' in locals() else ''
+                            edit_public_institution = public_institution if 'public_institution' in locals() else ''
+                            edit_station = station if 'station' in locals() else ''
+                            edit_employment_number = employment_number if 'employment_number' in locals() else ''
+                            edit_present_substantive_post = present_substantive_post if 'present_substantive_post' in locals() else ''
+                            edit_job_group = job_group if 'job_group' in locals() else ''
+                            edit_date_of_current_appointment = date_of_current_appointment if 'date_of_current_appointment' in locals() else None
+                            edit_upgraded_post = upgraded_post if 'upgraded_post' in locals() else ''
+                            edit_effective_date_previous_appointment = effective_date_previous_appointment if 'effective_date_previous_appointment' in locals() else None
+                            edit_secondment_organisation = secondment_organisation if 'secondment_organisation' in locals() else ''
+                            edit_secondment_designation = secondment_designation if 'secondment_designation' in locals() else ''
+                            edit_terms_of_service = terms_of_service if 'terms_of_service' in locals() else ''
+                            edit_gross_monthly_salary = gross_monthly_salary if 'gross_monthly_salary' in locals() else 0
+                            edit_expected_gross_monthly_salary = expected_gross_monthly_salary if 'expected_gross_monthly_salary' in locals() else 0
+                            edit_convicted = convicted if 'convicted' in locals() else "No"
+                            edit_dismissed = dismissed if 'dismissed' in locals() else "No"
+                            
+                            # Education tab
+                            edit_secondary_school = secondary_school if 'secondary_school' in locals() else ''
+                            edit_index_number = index_number if 'index_number' in locals() else ''
+                            edit_mean_grade = mean_grade if 'mean_grade' in locals() else ''
+                            edit_certificate_no = certificate_no if 'certificate_no' in locals() else ''
+                            edit_year_completed = year_completed if 'year_completed' in locals() else 2000
+                            
+                            # Referees tab
+                            edit_referee1_name = referee1_name if 'referee1_name' in locals() else ''
+                            edit_referee1_occupation = referee1_occupation if 'referee1_occupation' in locals() else ''
+                            edit_referee1_postal_address = referee1_postal_address if 'referee1_postal_address' in locals() else ''
+                            edit_referee1_post_code = referee1_post_code if 'referee1_post_code' in locals() else ''
+                            edit_referee1_city = referee1_city if 'referee1_city' in locals() else ''
+                            edit_referee1_mobile = referee1_mobile if 'referee1_mobile' in locals() else ''
+                            edit_referee1_email = referee1_email if 'referee1_email' in locals() else ''
+                            edit_referee1_period = referee1_period if 'referee1_period' in locals() else ''
+                            edit_referee2_name = referee2_name if 'referee2_name' in locals() else ''
+                            edit_referee2_occupation = referee2_occupation if 'referee2_occupation' in locals() else ''
+                            edit_referee2_postal_address = referee2_postal_address if 'referee2_postal_address' in locals() else ''
+                            edit_referee2_post_code = referee2_post_code if 'referee2_post_code' in locals() else ''
+                            edit_referee2_city = referee2_city if 'referee2_city' in locals() else ''
+                            edit_referee2_mobile = referee2_mobile if 'referee2_mobile' in locals() else ''
+                            edit_referee2_email = referee2_email if 'referee2_email' in locals() else ''
+                            edit_referee2_period = referee2_period if 'referee2_period' in locals() else ''
+                            edit_referee3_name = referee3_name if 'referee3_name' in locals() else ''
+                            edit_referee3_occupation = referee3_occupation if 'referee3_occupation' in locals() else ''
+                            edit_referee3_postal_address = referee3_postal_address if 'referee3_postal_address' in locals() else ''
+                            edit_referee3_post_code = referee3_post_code if 'referee3_post_code' in locals() else ''
+                            edit_referee3_city = referee3_city if 'referee3_city' in locals() else ''
+                            edit_referee3_mobile = referee3_mobile if 'referee3_mobile' in locals() else ''
+                            edit_referee3_email = referee3_email if 'referee3_email' in locals() else ''
+                            edit_referee3_period = referee3_period if 'referee3_period' in locals() else ''
+                            
+                            # Declaration
+                            edit_declaration = declaration if 'declaration' in locals() else False
+                            edit_remarks = remarks if 'remarks' in locals() else ''
                             
                             # Build qualification summary
                             edit_qual_summary = f"KCSE: {edit_mean_grade if edit_mean_grade != 'Select' else 'N/A'} ({edit_year_completed})"
@@ -13084,7 +13177,7 @@ def edit_applicant():
                     Department: {edit_department}
                     Source: {edit_source}
                     Application Date: {edit_application_date}
-                    
+
                     === PERSONAL INFORMATION ===
                     Name: {edit_name}
                     Gender: {edit_gender if edit_gender != 'Select' else 'N/A'}
@@ -13105,10 +13198,10 @@ def edit_applicant():
                     Phone: {edit_contact if edit_contact else 'N/A'}
                     Email: {edit_email if edit_email else 'N/A'}
                     Practicing Licence: {edit_practicing_licence if edit_practicing_licence else 'N/A'}
-                    
+
                     === PUBLIC SERVICE ===
                     In Public Service: {edit_in_public_service}
-                    Institution Category: {edit_public_institution_category if edit_public_institution_category != 'Select' else 'N/A'}
+                    Institution Category: {edit_public_institution_category if edit_public_institution_category and edit_public_institution_category != 'Select' else 'N/A'}
                     Institution: {edit_public_institution if edit_public_institution else 'N/A'}
                     Station: {edit_station if edit_station else 'N/A'}
                     Employment No.: {edit_employment_number if edit_employment_number else 'N/A'}
@@ -13122,35 +13215,38 @@ def edit_applicant():
                     Terms of Service: {edit_terms_of_service if edit_terms_of_service else 'N/A'}
                     Gross Monthly Salary: {f"Kshs. {edit_gross_monthly_salary:,.0f}" if edit_gross_monthly_salary > 0 else 'N/A'}
                     Expected Gross Monthly Salary: {f"Kshs. {edit_expected_gross_monthly_salary:,.0f}" if edit_expected_gross_monthly_salary > 0 else 'N/A'}
-                    
+
                     === LEGAL DECLARATIONS ===
                     Convicted: {edit_convicted}
                     Dismissed: {edit_dismissed}
-                    
+
                     === EDUCATION ===
                     KCSE School: {edit_secondary_school if edit_secondary_school else 'N/A'}
                     KCSE Index: {edit_index_number if edit_index_number else 'N/A'}
                     KCSE Grade: {edit_mean_grade if edit_mean_grade != 'Select' else 'N/A'}
                     KCSE Cert No: {edit_certificate_no if edit_certificate_no else 'N/A'}
                     KCSE Year: {edit_year_completed if edit_year_completed else 'N/A'}
-                    
+
                     === QUALIFICATIONS ===
                     Academic Qualifications: {len(st.session_state.edit_academic_qualifications)} records
                     Professional Qualifications: {len(st.session_state.edit_professional_qualifications)} records
                     Other Courses: {len(st.session_state.edit_other_courses)} records
                     Professional Memberships: {len(st.session_state.edit_professional_memberships)} records
-                    
+
                     === WORK EXPERIENCE ===
                     Number of Positions: {len(st.session_state.edit_work_experience)} records
-                    
+
                     === REFEREES ===
                     Referee 1: {edit_referee1_name if edit_referee1_name else 'N/A'} - {edit_referee1_occupation if edit_referee1_occupation else 'N/A'}
                     Referee 2: {edit_referee2_name if edit_referee2_name else 'N/A'} - {edit_referee2_occupation if edit_referee2_occupation else 'N/A'}
                     Referee 3: {edit_referee3_name if edit_referee3_name else 'N/A'} - {edit_referee3_occupation if edit_referee3_occupation else 'N/A'}
-                    
+
                     === ADDITIONAL ===
                     {edit_remarks if edit_remarks else 'N/A'}
                     """
+                            
+                            # Now proceed with the UPDATE query using these values
+                            # ... (rest of your update code)
                             
                             # Update the staff record
                             update_query = """
