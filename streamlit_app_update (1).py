@@ -8524,28 +8524,27 @@ def applicant_profile():
                         <table style="width: 100%;">
                     """, unsafe_allow_html=True)
                     
-                    # Use .get() to handle missing columns gracefully
                     details = {
-                        "Gender": staff.get('gender') or "Not specified",
-                        "Year of Birth": staff.get('yob') or "Not specified",
+                        "Gender": staff['gender'] or "Not specified",
+                        "Year of Birth": staff['yob'] or "Not specified",
                         "Age": f"{age} years" if age else "N/A",
-                        "Ethnicity": staff.get('ethnicity') or "Not specified",
-                        "Disability": staff.get('disability') or "None",
-                        "Contact": staff.get('contact') or "Not provided",
-                        "Email": staff.get('email') or "Not provided",
-                        "KCSE Year": staff.get('kcse') or "Not specified",
-                        "KCSE Grade": staff.get('kcse_grade') or "Not specified",
-                        "Qualifications": staff.get('qualifications') or "Not specified",
-                        "Institution": staff.get('institution') or "Not specified",
-                        "Graduation Year": staff.get('graduation_year') or "Not specified",
-                        "Professional Body": staff.get('professional_body') or "Not specified",
-                        "Practicing Licence": staff.get('practicing_licence') if 'practicing_licence' in staff.index else "Not specified",
-                        "Experience Years": staff.get('experience_years') or "Not specified",
-                        "Current Employer": staff.get('current_employer') or "Not specified",
-                        "Sub-County": staff.get('subcounty') or "Not specified",
-                        "Ward": staff.get('ward') or "Not specified",
-                        "Experience": staff.get('experience') or "Not specified",
-                        "Remarks": staff.get('remarks') or "None"
+                        "Ethnicity": staff['ethnicity'] or "Not specified",
+                        "Disability": staff['disability'] or "None",
+                        "Contact": staff['contact'] or "Not provided",
+                        "Email": staff['email'] or "Not provided",
+                        "KCSE Year": staff['kcse'] or "Not specified",
+                        "KCSE Grade": staff['kcse_grade'] or "Not specified",
+                        "Qualifications": staff['qualifications'] or "Not specified",
+                        "Institution": staff['institution'] or "Not specified",
+                        "Graduation Year": staff['graduation_year'] or "Not specified",
+                        "Professional Body": staff['professional_body'] or "Not specified",
+                        "Practicing Licence": staff['practicing_licence'] or "Not specified",
+                        "Experience Years": staff['experience_years'] or "Not specified",
+                        "Current Employer": staff['current_employer'] or "Not specified",
+                        "Sub-County": staff['subcounty'] or "Not specified",
+                        "Ward": staff['ward'] or "Not specified",
+                        "Experience": staff['experience'] or "Not specified",
+                        "Remarks": staff['remarks'] or "None"
                     }
                     
                     for key, value in details.items():
@@ -8575,95 +8574,495 @@ def applicant_profile():
                 with col2:
                     if st.button("📄 Export PDF", use_container_width=True):
                         try:
+                            # Parse remarks for additional details
+                            remarks = staff.get('remarks', '')
+                            
+                            # Extract public service details from remarks
+                            def extract_section(remarks, section_name):
+                                import re
+                                pattern = f'=== {section_name} ===\n(.*?)(?:\n=== |$)'
+                                match = re.search(pattern, remarks, re.DOTALL)
+                                if match:
+                                    return match.group(1).strip()
+                                return ''
+                            
+                            ps_details = extract_section(remarks, 'PUBLIC SERVICE')
+                            
+                            # Build the PDF HTML
                             html_content = f"""
                             <!DOCTYPE html>
                             <html>
                             <head>
-                                <title>Applicant Profile - {staff['name']}</title>
+                                <title>ECPSB Application Form - {staff['name']}</title>
                                 <style>
-                                    body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                                    .header {{ text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }}
-                                    .section {{ margin-bottom: 20px; }}
-                                    .section h2 {{ background: #f0f0f0; padding: 10px; border-radius: 5px; }}
-                                    table {{ width: 100%; border-collapse: collapse; }}
-                                    td {{ padding: 8px 12px; border-bottom: 1px solid #ddd; }}
-                                    .label {{ font-weight: bold; width: 40%; }}
-                                    .footer {{ text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #333; color: #666; font-size: 12px; }}
+                                    body {{
+                                        font-family: 'Times New Roman', Times, serif;
+                                        margin: 0.5in;
+                                        font-size: 11px;
+                                        line-height: 1.4;
+                                        color: #000;
+                                    }}
+                                    .header {{
+                                        text-align: center;
+                                        border-bottom: 2px solid #000;
+                                        padding-bottom: 10px;
+                                        margin-bottom: 15px;
+                                    }}
+                                    .header h1 {{
+                                        font-size: 16px;
+                                        margin: 0;
+                                        font-weight: bold;
+                                    }}
+                                    .header h2 {{
+                                        font-size: 14px;
+                                        margin: 3px 0;
+                                    }}
+                                    .header p {{
+                                        font-size: 11px;
+                                        margin: 2px 0;
+                                    }}
+                                    .section {{
+                                        margin-bottom: 10px;
+                                        page-break-inside: avoid;
+                                    }}
+                                    .section-title {{
+                                        font-size: 12px;
+                                        font-weight: bold;
+                                        background: #f0f0f0;
+                                        padding: 3px 8px;
+                                        margin-bottom: 5px;
+                                        border-bottom: 1px solid #000;
+                                    }}
+                                    .field-row {{
+                                        display: flex;
+                                        margin: 2px 0;
+                                        padding: 2px 5px;
+                                    }}
+                                    .field-label {{
+                                        font-weight: bold;
+                                        min-width: 180px;
+                                    }}
+                                    .field-value {{
+                                        flex: 1;
+                                        border-bottom: 1px dotted #999;
+                                        padding-left: 5px;
+                                    }}
+                                    .field-value-filled {{
+                                        flex: 1;
+                                        padding-left: 5px;
+                                    }}
+                                    .signature-line {{
+                                        margin-top: 20px;
+                                        padding-top: 10px;
+                                        border-top: 1px solid #000;
+                                        text-align: center;
+                                    }}
+                                    .footer {{
+                                        text-align: center;
+                                        font-size: 9px;
+                                        margin-top: 20px;
+                                        padding-top: 10px;
+                                        border-top: 1px solid #ccc;
+                                        color: #666;
+                                    }}
+                                    table {{
+                                        width: 100%;
+                                        border-collapse: collapse;
+                                        font-size: 10px;
+                                        margin: 5px 0;
+                                    }}
+                                    th {{
+                                        background: #f0f0f0;
+                                        border: 1px solid #000;
+                                        padding: 4px;
+                                        text-align: left;
+                                        font-weight: bold;
+                                    }}
+                                    td {{
+                                        border: 1px solid #000;
+                                        padding: 4px;
+                                    }}
+                                    .checkbox {{
+                                        display: inline-block;
+                                        width: 15px;
+                                        height: 15px;
+                                        border: 1px solid #000;
+                                        text-align: center;
+                                        margin: 0 3px;
+                                    }}
+                                    .checkbox-checked {{
+                                        background: #000;
+                                    }}
+                                    .declaration {{
+                                        margin: 10px 0;
+                                        padding: 10px;
+                                        border: 1px solid #ccc;
+                                        background: #f9f9f9;
+                                    }}
+                                    .two-col {{
+                                        display: flex;
+                                    }}
+                                    .col {{
+                                        flex: 1;
+                                        padding: 0 5px;
+                                    }}
+                                    @media print {{
+                                        .no-print {{ display: none; }}
+                                        body {{ margin: 0.3in; }}
+                                    }}
                                 </style>
                             </head>
                             <body>
                                 <div class="header">
-                                    <h1>APPLICANT PROFILE</h1>
-                                    <p>Embu County Public Service Board</p>
-                                    <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                                    <h1>REPUBLIC OF KENYA</h1>
+                                    <h2>EMBU COUNTY GOVERNMENT</h2>
+                                    <h2>EMBU PUBLIC SERVICE BOARD</h2>
+                                    <p><strong>APPLICATION FOR EMPLOYMENT FORM</strong></p>
+                                    <p style="font-size: 10px; margin-top: 5px;">Please complete this form in <strong>BLOCK</strong> letters as appropriate</p>
                                 </div>
-                                
+
+                                <!-- Section 1: Vacancy Applied For -->
                                 <div class="section">
-                                    <h2>Personal Information</h2>
-                                    <table>
-                                        <tr><td class="label">Name:</td><td>{staff['name']}</td></tr>
-                                        <tr><td class="label">ID Number:</td><td>{staff['id_number']}</td></tr>
-                                        <tr><td class="label">Gender:</td><td>{staff.get('gender') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Year of Birth:</td><td>{staff.get('yob') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Age:</td><td>{age if age else 'N/A'} years</td></tr>
-                                        <tr><td class="label">Ethnicity:</td><td>{staff.get('ethnicity') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Disability:</td><td>{staff.get('disability') or 'None'}</td></tr>
-                                        <tr><td class="label">Contact:</td><td>{staff.get('contact') or 'Not provided'}</td></tr>
-                                        <tr><td class="label">Email:</td><td>{staff.get('email') or 'Not provided'}</td></tr>
-                                    </table>
+                                    <div class="section-title">1. VACANCY APPLIED FOR</div>
+                                    <div class="field-row">
+                                        <span class="field-label">Position:</span>
+                                        <span class="field-value-filled"><strong>{staff.get('position_applied', 'Not specified')}</strong></span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Vacancy No.:</span>
+                                        <span class="field-value-filled">{staff.get('advertisement_ref', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Department/Directorate:</span>
+                                        <span class="field-value-filled">{staff.get('department', 'Not specified')}</span>
+                                    </div>
                                 </div>
-                                
+
+                                <!-- Section 2: Personal Details -->
                                 <div class="section">
-                                    <h2>Education & Qualifications</h2>
-                                    <table>
-                                        <tr><td class="label">KCSE Year:</td><td>{staff.get('kcse') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">KCSE Grade:</td><td>{staff.get('kcse_grade') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Qualifications:</td><td>{staff.get('qualifications') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Institution:</td><td>{staff.get('institution') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Graduation Year:</td><td>{staff.get('graduation_year') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Professional Body:</td><td>{staff.get('professional_body') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Practicing Licence:</td><td>{staff.get('practicing_licence') if 'practicing_licence' in staff.index else 'Not specified'}</td></tr>
-                                    </table>
+                                    <div class="section-title">2. PERSONAL DETAILS OF THE APPLICANT</div>
+                                    <div class="field-row">
+                                        <span class="field-label">Name of Applicant:</span>
+                                        <span class="field-value-filled"><strong>{staff.get('name', 'Not specified')}</strong></span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Title:</span>
+                                        <span class="field-value-filled">{staff.get('title', 'Mr.')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Date of Birth:</span>
+                                        <span class="field-value-filled">{staff.get('yob', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">ID Number:</span>
+                                        <span class="field-value-filled">{staff.get('id_number', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Gender:</span>
+                                        <span class="field-value-filled">{staff.get('gender', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Nationality:</span>
+                                        <span class="field-value-filled">{staff.get('nationality', 'Kenyan')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Ethnicity:</span>
+                                        <span class="field-value-filled">{staff.get('ethnicity', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Home County:</span>
+                                        <span class="field-value-filled">{staff.get('home_county', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Sub County:</span>
+                                        <span class="field-value-filled">{staff.get('subcounty', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Constituency:</span>
+                                        <span class="field-value-filled">{staff.get('home_constituency', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Ward:</span>
+                                        <span class="field-value-filled">{staff.get('home_ward', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Postal Address:</span>
+                                        <span class="field-value-filled">{staff.get('postal_address', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Postal Code:</span>
+                                        <span class="field-value-filled">{staff.get('postal_code', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Town/City:</span>
+                                        <span class="field-value-filled">{staff.get('town', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Mobile:</span>
+                                        <span class="field-value-filled">{staff.get('contact', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Email:</span>
+                                        <span class="field-value-filled">{staff.get('email', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Alternative Contact Name:</span>
+                                        <span class="field-value-filled">{staff.get('alt_contact_name', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Alternative Contact Mobile:</span>
+                                        <span class="field-value-filled">{staff.get('alt_contact_mobile', 'Not specified')}</span>
+                                    </div>
                                 </div>
-                                
+
+                                <!-- Section 3: Public Service -->
                                 <div class="section">
-                                    <h2>Work Experience</h2>
-                                    <table>
-                                        <tr><td class="label">Experience Years:</td><td>{staff.get('experience_years') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Current Employer:</td><td>{staff.get('current_employer') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Experience:</td><td>{staff.get('experience') or 'Not specified'}</td></tr>
-                                    </table>
+                                    <div class="section-title">3. APPLICANTS IN THE PUBLIC SERVICE ONLY</div>
+                                    <div class="field-row">
+                                        <span class="field-label">Ministry/Department/County:</span>
+                                        <span class="field-value-filled">{staff.get('public_institution', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Station:</span>
+                                        <span class="field-value-filled">{staff.get('station', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Personal/Employment No.:</span>
+                                        <span class="field-value-filled">{staff.get('employment_number', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Present Substantive Post:</span>
+                                        <span class="field-value-filled">{staff.get('present_substantive_post', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Job Group:</span>
+                                        <span class="field-value-filled">{staff.get('job_group', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Date of Current Appointment:</span>
+                                        <span class="field-value-filled">{staff.get('date_of_current_appointment', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Upgrading Post:</span>
+                                        <span class="field-value-filled">{staff.get('upgraded_post', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Effective Date Previous Appointment:</span>
+                                        <span class="field-value-filled">{staff.get('effective_date_previous_appointment', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Terms of Service:</span>
+                                        <span class="field-value-filled">{staff.get('terms_of_service', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Gross Monthly Salary:</span>
+                                        <span class="field-value-filled">{f"Kshs. {staff.get('gross_monthly_salary', 0):,.0f}" if staff.get('gross_monthly_salary', 0) > 0 else 'N/A'}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Expected Gross Monthly Salary:</span>
+                                        <span class="field-value-filled">{f"Kshs. {staff.get('expected_gross_monthly_salary', 0):,.0f}" if staff.get('expected_gross_monthly_salary', 0) > 0 else 'N/A'}</span>
+                                    </div>
                                 </div>
-                                
+
+                                <!-- Section 4: Other Details -->
                                 <div class="section">
-                                    <h2>Location & Application</h2>
-                                    <table>
-                                        <tr><td class="label">Sub-County:</td><td>{staff.get('subcounty') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Ward:</td><td>{staff.get('ward') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Position Applied:</td><td>{staff.get('position_applied') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Application Status:</td><td>{staff.get('application_status') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Advertisement Ref:</td><td>{staff.get('advertisement_ref') or 'Not specified'}</td></tr>
-                                        <tr><td class="label">Application Date:</td><td>{staff.get('application_date') or 'Not specified'}</td></tr>
-                                    </table>
+                                    <div class="section-title">4. OTHER DETAILS</div>
+                                    <div class="field-row">
+                                        <span class="field-label">Physical Impairment:</span>
+                                        <span class="field-value-filled">{'Yes' if staff.get('disability') and staff.get('disability') != 'None' else 'No'}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Nature of Disability:</span>
+                                        <span class="field-value-filled">{staff.get('disability', 'None')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">NCPWD Registration No.:</span>
+                                        <span class="field-value-filled">{staff.get('ncpwd_number', 'N/A')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Convicted of Criminal Offence:</span>
+                                        <span class="field-value-filled">{staff.get('convicted', 'No')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Dismissed/Removed from Employment:</span>
+                                        <span class="field-value-filled">{staff.get('dismissed', 'No')}</span>
+                                    </div>
                                 </div>
-                                
+
+                                <!-- Section 5: Education -->
+                                <div class="section">
+                                    <div class="section-title">5. ACADEMIC/PROFESSIONAL/TECHNICAL QUALIFICATIONS</div>
+                                    <div class="field-row">
+                                        <span class="field-label">KCSE School:</span>
+                                        <span class="field-value-filled">{staff.get('secondary_school', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">KCSE Index:</span>
+                                        <span class="field-value-filled">{staff.get('index_number', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">KCSE Grade:</span>
+                                        <span class="field-value-filled">{staff.get('kcse_grade', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">KCSE Year:</span>
+                                        <span class="field-value-filled">{staff.get('kcse', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Qualifications:</span>
+                                        <span class="field-value-filled">{staff.get('qualifications', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Institution:</span>
+                                        <span class="field-value-filled">{staff.get('institution', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Graduation Year:</span>
+                                        <span class="field-value-filled">{staff.get('graduation_year', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Professional Body:</span>
+                                        <span class="field-value-filled">{staff.get('professional_body', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Practicing Licence:</span>
+                                        <span class="field-value-filled">{staff.get('practicing_licence', 'Not specified')}</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Experience Years:</span>
+                                        <span class="field-value-filled">{staff.get('experience_years', '0')} years</span>
+                                    </div>
+                                    <div class="field-row">
+                                        <span class="field-label">Current Employer:</span>
+                                        <span class="field-value-filled">{staff.get('current_employer', 'Not specified')}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Section 6: Work Experience -->
+                                <div class="section">
+                                    <div class="section-title">6. WORK EXPERIENCE</div>
+                                    <div class="field-row">
+                                        <span class="field-label">Experience Summary:</span>
+                                        <span class="field-value-filled">{staff.get('experience', 'Not specified')}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Section 7: Referees -->
+                                <div class="section">
+                                    <div class="section-title">7. PERSONAL REFERENCES</div>
+                                    <div style="margin: 5px 0;">
+                                        <strong>Referee 1:</strong>
+                                        <div class="field-row">
+                                            <span class="field-label">Name:</span>
+                                            <span class="field-value-filled">{staff.get('referee1_name', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Occupation:</span>
+                                            <span class="field-value-filled">{staff.get('referee1_occupation', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Mobile:</span>
+                                            <span class="field-value-filled">{staff.get('referee1_mobile', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Email:</span>
+                                            <span class="field-value-filled">{staff.get('referee1_email', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Period Known:</span>
+                                            <span class="field-value-filled">{staff.get('referee1_period', 'Not specified')}</span>
+                                        </div>
+                                    </div>
+                                    <div style="margin: 5px 0;">
+                                        <strong>Referee 2:</strong>
+                                        <div class="field-row">
+                                            <span class="field-label">Name:</span>
+                                            <span class="field-value-filled">{staff.get('referee2_name', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Occupation:</span>
+                                            <span class="field-value-filled">{staff.get('referee2_occupation', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Mobile:</span>
+                                            <span class="field-value-filled">{staff.get('referee2_mobile', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Email:</span>
+                                            <span class="field-value-filled">{staff.get('referee2_email', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Period Known:</span>
+                                            <span class="field-value-filled">{staff.get('referee2_period', 'Not specified')}</span>
+                                        </div>
+                                    </div>
+                                    <div style="margin: 5px 0;">
+                                        <strong>Referee 3:</strong>
+                                        <div class="field-row">
+                                            <span class="field-label">Name:</span>
+                                            <span class="field-value-filled">{staff.get('referee3_name', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Occupation:</span>
+                                            <span class="field-value-filled">{staff.get('referee3_occupation', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Mobile:</span>
+                                            <span class="field-value-filled">{staff.get('referee3_mobile', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Email:</span>
+                                            <span class="field-value-filled">{staff.get('referee3_email', 'Not specified')}</span>
+                                        </div>
+                                        <div class="field-row">
+                                            <span class="field-label">Period Known:</span>
+                                            <span class="field-value-filled">{staff.get('referee3_period', 'Not specified')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Section 8: Declaration -->
+                                <div class="section">
+                                    <div class="section-title">8. DECLARATION</div>
+                                    <div class="declaration">
+                                        <p style="font-size: 11px; font-style: italic;">
+                                            I hereby certify to the best of my knowledge that the particulars given on this form are correct 
+                                            and I understand that any incorrect information may lead to disciplinary action.
+                                        </p>
+                                        <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+                                            <div>
+                                                <span style="font-weight: bold;">Date:</span> 
+                                                <span style="border-bottom: 1px solid #000; padding: 0 40px;">{datetime.now().strftime('%d-%m-%Y')}</span>
+                                            </div>
+                                            <div>
+                                                <span style="font-weight: bold;">Signature:</span> 
+                                                <span style="border-bottom: 1px solid #000; padding: 0 40px;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="footer">
-                                    <p>Embu County Public Service Board &bull; This is a system-generated document</p>
+                                    <p><strong>Our Address:</strong> Trade Building 2nd Floor, Kaunda Street, P.O. Box 2871-60100 Embu, Tel: 0722547089</p>
+                                    <p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
                                 </div>
                             </body>
                             </html>
                             """
                             
                             st.download_button(
-                                "📥 Download Profile (HTML)",
+                                "📥 Download Profile (PDF)",
                                 html_content,
-                                f"profile_{staff['name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.html",
+                                f"ECPSB_Application_Form_{staff['name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.html",
                                 "text/html",
                                 use_container_width=True
                             )
+                            st.success("✅ PDF ready for download! Open in browser and print as PDF.")
                             
                         except Exception as e:
-                            st.error(f"Error generating profile: {e}")
+                            st.error(f"Error generating PDF: {e}")
+                            import traceback
+                            st.code(traceback.format_exc())
                 
                 with col3:
                     if st.button("📥 Export CSV", use_container_width=True):
