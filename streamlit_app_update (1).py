@@ -12138,6 +12138,18 @@ def edit_applicant():
         if 'edit_search_performed' not in st.session_state:
             st.session_state.edit_search_performed = False
         
+        # Initialize session state for dynamic lists if not exists
+        if 'edit_academic_qualifications' not in st.session_state:
+            st.session_state.edit_academic_qualifications = []
+        if 'edit_professional_qualifications' not in st.session_state:
+            st.session_state.edit_professional_qualifications = []
+        if 'edit_other_courses' not in st.session_state:
+            st.session_state.edit_other_courses = []
+        if 'edit_professional_memberships' not in st.session_state:
+            st.session_state.edit_professional_memberships = []
+        if 'edit_work_experience' not in st.session_state:
+            st.session_state.edit_work_experience = []
+        
         # =========================================================
         # SEARCH SECTION
         # =========================================================
@@ -12199,6 +12211,7 @@ def edit_applicant():
                         )
                         
                         if st.button("📝 Load Applicant", use_container_width=True, type="primary"):
+                            # Load the applicant's data into session state
                             st.session_state.edit_selected_applicant = selected_id
                             st.rerun()
             else:
@@ -12270,13 +12283,13 @@ def edit_applicant():
                         
                         current_position = app['position_applied'] if app['position_applied'] else position_options[0]
                         position_index = position_options.index(current_position) if current_position in position_options else 0
-                        new_position = st.selectbox("🎯 Position Applied For*", position_options, index=position_index, key="edit_position")
+                        edit_position_applied = st.selectbox("🎯 Position Applied For*", position_options, index=position_index, key="edit_position")
                         
                         # Advertisement Reference
-                        new_advert_ref = st.text_input("📢 Advertisement Reference Number", value=app['advertisement_ref'] if app['advertisement_ref'] else "", key="edit_advert_ref")
+                        edit_advertisement_ref = st.text_input("📢 Advertisement Reference Number", value=app['advertisement_ref'] if app['advertisement_ref'] else "", key="edit_advert_ref")
                         
                         # Department
-                        new_department = st.text_input("🏢 Department", value=app.get('department', ''), key="edit_department")
+                        edit_department = st.text_input("🏢 Department", value=app.get('department', ''), key="edit_department")
                     
                     with col2:
                         # Application Date
@@ -12287,19 +12300,19 @@ def edit_applicant():
                                 app_date_val = datetime.now().date()
                         except:
                             app_date_val = datetime.now().date()
-                        new_application_date = st.date_input("📅 Application Date", value=app_date_val, key="edit_application_date")
+                        edit_application_date = st.date_input("📅 Application Date", value=app_date_val, key="edit_application_date")
                         
                         # Source of Information
                         source_options = ["Select Source", "Newspaper Advertisement", "County Website", "Social Media", "Word of Mouth", "Job Portal", "Other"]
                         current_source = app.get('source_of_info') if app.get('source_of_info') in source_options else "Select Source"
                         source_index = source_options.index(current_source) if current_source in source_options else 0
-                        new_source = st.selectbox("📺 How did you hear about this position?", source_options, index=source_index, key="edit_source")
+                        edit_source = st.selectbox("📺 How did you hear about this position?", source_options, index=source_index, key="edit_source")
                     
                     # Application Status
                     status_options = ["Pending", "Shortlisted", "Interview Scheduled", "Interviewed", "Recommended", "Hired", "Rejected"]
                     current_status = app['application_status'] if app['application_status'] else "Pending"
                     status_index = status_options.index(current_status) if current_status in status_options else 0
-                    new_status = st.selectbox("Application Status", status_options, index=status_index, key="edit_status")
+                    edit_status = st.selectbox("Application Status", status_options, index=status_index, key="edit_status")
                     
                     # Interview Details
                     col1, col2 = st.columns(2)
@@ -12311,14 +12324,14 @@ def edit_applicant():
                                 interview_date_val = datetime.now().date()
                         except:
                             interview_date_val = datetime.now().date()
-                        new_interview_date = st.date_input("Interview Date", value=interview_date_val, key="edit_interview_date")
+                        edit_interview_date = st.date_input("Interview Date", value=interview_date_val, key="edit_interview_date")
                     
                     with col2:
                         try:
                             interview_score_val = float(app['interview_score']) if app['interview_score'] else 0.0
                         except:
                             interview_score_val = 0.0
-                        new_interview_score = st.number_input("Interview Score (0-100)", min_value=0.0, max_value=100.0, value=interview_score_val, step=5.0, key="edit_score")
+                        edit_interview_score = st.number_input("Interview Score (0-100)", min_value=0.0, max_value=100.0, value=interview_score_val, step=5.0, key="edit_score")
                     
                     # Shortlist Date
                     try:
@@ -12328,7 +12341,7 @@ def edit_applicant():
                             shortlist_date_val = datetime.now().date()
                     except:
                         shortlist_date_val = datetime.now().date()
-                    new_shortlist_date = st.date_input("Shortlist Date", value=shortlist_date_val, key="edit_shortlist_date")
+                    edit_shortlist_date = st.date_input("Shortlist Date", value=shortlist_date_val, key="edit_shortlist_date")
                 
                 # =========================================================
                 # TAB 2: PERSONAL INFORMATION
@@ -12339,40 +12352,39 @@ def edit_applicant():
                     col1, col2 = st.columns(2)
                     
                     with col1:
-                        new_name = st.text_input("👨‍🏫 Full Name (as per ID)*", value=app['name'] if app['name'] else "", key="edit_name")
+                        edit_name = st.text_input("👨‍🏫 Full Name (as per ID)*", value=app['name'] if app['name'] else "", key="edit_name")
                         
                         gender_options = ["Select", "Male", "Female", "Other"]
                         current_gender = app['gender'] if app['gender'] in gender_options else "Select"
                         gender_index = gender_options.index(current_gender) if current_gender in gender_options else 0
-                        new_gender = st.selectbox("⚧ Gender", gender_options, index=gender_index, key="edit_gender")
+                        edit_gender = st.selectbox("⚧ Gender", gender_options, index=gender_index, key="edit_gender")
                         
-                        new_id = st.text_input("🆔 National ID Number*", value=app['id_number'] if app['id_number'] else "", key="edit_id")
+                        edit_id_number = st.text_input("🆔 National ID Number*", value=app['id_number'] if app['id_number'] else "", key="edit_id")
                         
                         try:
                             yob_val = int(app['yob']) if app['yob'] else 1990
                         except:
                             yob_val = 1990
-                        new_yob = st.number_input("🎂 Year of Birth", min_value=1950, max_value=2026, value=yob_val, key="edit_yob")
+                        edit_yob = st.number_input("🎂 Year of Birth", min_value=1950, max_value=2026, value=yob_val, key="edit_yob")
                         
-                        new_kra_pin = st.text_input("KRA PIN", value=app.get('kra_pin', ''), key="edit_kra_pin")
+                        edit_kra_pin = st.text_input("KRA PIN", value=app.get('kra_pin', ''), key="edit_kra_pin")
                         
                         ethnicity_options = ["Select Ethnicity", "Kalenjin", "Kamba", "Kikuyu", "Luhya", "Luo", "Kisii", "Mijikenda", "Meru", "Maasai", "Turkana", "Somali", "Taita/Taveta", "Mbeere", "Embu", "Teso", "Other"]
                         current_ethnicity = app['ethnicity'] if app['ethnicity'] in ethnicity_options else "Select Ethnicity"
                         ethnicity_index = ethnicity_options.index(current_ethnicity) if current_ethnicity in ethnicity_options else 0
-                        new_ethnicity = st.selectbox("🌍 Ethnicity", ethnicity_options, index=ethnicity_index, key="edit_ethnicity")
+                        edit_ethnicity = st.selectbox("🌍 Ethnicity", ethnicity_options, index=ethnicity_index, key="edit_ethnicity")
                         
                         disability_options = ["None", "Physical Disability", "Visual Impairment", "Hearing Impairment", "Speech Impairment", "Learning Disability", "Mental Health Condition", "Albinism", "Other"]
                         current_disability = app['disability'] if app['disability'] in disability_options else "None"
                         disability_index = disability_options.index(current_disability) if current_disability in disability_options else 0
-                        new_disability = st.selectbox("♿ Disability Status", disability_options, index=disability_index, key="edit_disability")
+                        edit_disability = st.selectbox("♿ Disability Status", disability_options, index=disability_index, key="edit_disability")
                         
-                        # NCPWD Number
-                        new_ncpwd_number = st.text_input("NCPWD Registration Number", value=app.get('ncpwd_number', ''), placeholder="e.g., NCPWD/12345/2024", key="edit_ncpwd")
+                        edit_ncpwd_number = st.text_input("NCPWD Registration Number", value=app.get('ncpwd_number', ''), placeholder="e.g., NCPWD/12345/2024", key="edit_ncpwd")
                         
                         nationality_options = ["Select", "Kenyan", "Other"]
                         current_nationality = app.get('nationality', 'Select')
                         nationality_index = nationality_options.index(current_nationality) if current_nationality in nationality_options else 0
-                        new_nationality = st.selectbox("Nationality", nationality_options, index=nationality_index, key="edit_nationality")
+                        edit_nationality = st.selectbox("Nationality", nationality_options, index=nationality_index, key="edit_nationality")
                     
                     with col2:
                         # Age calculation
@@ -12385,25 +12397,25 @@ def edit_applicant():
                             else:
                                 st.success(f"✅ Age: {age} years")
                         
-                        new_home_county = st.text_input("Home County", value=app.get('home_county', ''), placeholder="Enter your home county", key="edit_home_county")
-                        new_home_constituency = st.text_input("Home Constituency", value=app.get('home_constituency', ''), placeholder="Enter your home constituency", key="edit_home_constituency")
-                        new_subcounty = st.text_input("Sub County", value=app.get('subcounty', ''), placeholder="Enter your sub county", key="edit_subcounty")
-                        new_home_ward = st.text_input("Home Ward", value=app.get('home_ward', ''), placeholder="Enter your home ward", key="edit_home_ward")
-                        new_postal_address = st.text_input("Postal Address", value=app.get('postal_address', ''), placeholder="e.g., P.O. Box 123", key="edit_postal_address")
-                        new_postal_code = st.text_input("Postal Code", value=app.get('postal_code', ''), placeholder="e.g., 60100", key="edit_postal_code")
-                        new_town = st.text_input("Town/City", value=app.get('town', ''), placeholder="Enter your town/city", key="edit_town")
-                        new_practicing_licence = st.text_input("Practicing Licence", value=app.get('practicing_licence', ''), placeholder="e.g., TSC No: 123456", key="edit_practicing_licence")
+                        edit_home_county = st.text_input("Home County", value=app.get('home_county', ''), placeholder="Enter your home county", key="edit_home_county")
+                        edit_home_constituency = st.text_input("Home Constituency", value=app.get('home_constituency', ''), placeholder="Enter your home constituency", key="edit_home_constituency")
+                        edit_subcounty = st.text_input("Sub County", value=app.get('subcounty', ''), placeholder="Enter your sub county", key="edit_subcounty")
+                        edit_home_ward = st.text_input("Home Ward", value=app.get('home_ward', ''), placeholder="Enter your home ward", key="edit_home_ward")
+                        edit_postal_address = st.text_input("Postal Address", value=app.get('postal_address', ''), placeholder="e.g., P.O. Box 123", key="edit_postal_address")
+                        edit_postal_code = st.text_input("Postal Code", value=app.get('postal_code', ''), placeholder="e.g., 60100", key="edit_postal_code")
+                        edit_town = st.text_input("Town/City", value=app.get('town', ''), placeholder="Enter your town/city", key="edit_town")
+                        edit_practicing_licence = st.text_input("Practicing Licence", value=app.get('practicing_licence', ''), placeholder="e.g., TSC No: 123456", key="edit_practicing_licence")
                     
                     st.markdown("---")
                     st.markdown("#### 📞 Contact Information")
                     
                     col1, col2 = st.columns(2)
                     with col1:
-                        new_contact = st.text_input("📱 Phone Number*", value=app['contact'] if app['contact'] else "", key="edit_contact")
-                        new_email = st.text_input("📧 Email Address", value=app['email'] if app['email'] else "", key="edit_email")
+                        edit_contact = st.text_input("📱 Phone Number*", value=app['contact'] if app['contact'] else "", key="edit_contact")
+                        edit_email = st.text_input("📧 Email Address", value=app['email'] if app['email'] else "", key="edit_email")
                     with col2:
-                        new_alt_contact_name = st.text_input("Alternative Contact Person Name", value=app.get('alt_contact_name', ''), placeholder="Full name of alternative contact", key="edit_alt_name")
-                        new_alt_contact_mobile = st.text_input("Alternative Contact Person Mobile Number", value=app.get('alt_contact_mobile', ''), placeholder="07XXXXXXXX", key="edit_alt_mobile")
+                        edit_alt_contact_name = st.text_input("Alternative Contact Person Name", value=app.get('alt_contact_name', ''), placeholder="Full name of alternative contact", key="edit_alt_name")
+                        edit_alt_contact_mobile = st.text_input("Alternative Contact Person Mobile Number", value=app.get('alt_contact_mobile', ''), placeholder="07XXXXXXXX", key="edit_alt_mobile")
                 
                 # =========================================================
                 # TAB 3: PUBLIC SERVICE
@@ -12411,7 +12423,7 @@ def edit_applicant():
                 with tab3:
                     st.markdown("### 🏛️ Public Service Information")
                     
-                    in_public_service = st.radio(
+                    edit_in_public_service = st.radio(
                         "Are you currently in the Public Service?", 
                         ["No", "Yes"], 
                         horizontal=True, 
@@ -12419,7 +12431,7 @@ def edit_applicant():
                         key="edit_in_public_service"
                     )
                     
-                    if in_public_service == "Yes":
+                    if edit_in_public_service == "Yes":
                         st.markdown("---")
                         st.markdown("#### 📋 Public Service Details")
                         
@@ -12429,35 +12441,35 @@ def edit_applicant():
                             pub_cat_options = ["Select", "National Government", "County Government", "State Corporation", "Constitutional Commission", "Other"]
                             current_pub_cat = app.get('public_institution_category', 'Select')
                             pub_cat_index = pub_cat_options.index(current_pub_cat) if current_pub_cat in pub_cat_options else 0
-                            new_public_institution_category = st.selectbox(
+                            edit_public_institution_category = st.selectbox(
                                 "Public Institution Category",
                                 pub_cat_options,
                                 index=pub_cat_index,
                                 key="edit_public_institution_category"
                             )
                             
-                            new_public_institution = st.text_input(
+                            edit_public_institution = st.text_input(
                                 "Ministry/Department/County/Other Public Institutions",
                                 value=app.get('public_institution', ''),
                                 placeholder="e.g., Ministry of Health, Embu County",
                                 key="edit_public_institution"
                             )
                             
-                            new_station = st.text_input(
+                            edit_station = st.text_input(
                                 "Station",
                                 value=app.get('station', ''),
                                 placeholder="e.g., Embu Town",
                                 key="edit_station"
                             )
                             
-                            new_employment_number = st.text_input(
+                            edit_employment_number = st.text_input(
                                 "Personal/Employment No.",
                                 value=app.get('employment_number', ''),
                                 placeholder="e.g., 123456",
                                 key="edit_employment_number"
                             )
                             
-                            new_job_group = st.text_input(
+                            edit_job_group = st.text_input(
                                 "Job Group",
                                 value=app.get('job_group', ''),
                                 placeholder="e.g., JG 'M'",
@@ -12465,7 +12477,7 @@ def edit_applicant():
                             )
                         
                         with col2:
-                            new_present_substantive_post = st.text_input(
+                            edit_present_substantive_post = st.text_input(
                                 "Present Substantive Post",
                                 value=app.get('present_substantive_post', ''),
                                 placeholder="e.g., Senior Human Resource Officer",
@@ -12479,13 +12491,13 @@ def edit_applicant():
                                     date_current_val = None
                             except:
                                 date_current_val = None
-                            new_date_of_current_appointment = st.date_input(
+                            edit_date_of_current_appointment = st.date_input(
                                 "Date of Current Appointment",
                                 value=date_current_val,
                                 key="edit_date_current_appointment"
                             )
                             
-                            new_upgraded_post = st.text_input(
+                            edit_upgraded_post = st.text_input(
                                 "Upgrading Post (if applicable)",
                                 value=app.get('upgraded_post', ''),
                                 placeholder="e.g., Chief Human Resource Officer",
@@ -12499,20 +12511,20 @@ def edit_applicant():
                                     effective_date_val = None
                             except:
                                 effective_date_val = None
-                            new_effective_date_previous_appointment = st.date_input(
+                            edit_effective_date_previous_appointment = st.date_input(
                                 "Effective Date of Previous Appointment",
                                 value=effective_date_val,
                                 key="edit_effective_date_previous"
                             )
                             
-                            new_secondment_organisation = st.text_input(
+                            edit_secondment_organisation = st.text_input(
                                 "Secondment Organisation (if applicable)",
                                 value=app.get('secondment_organisation', ''),
                                 placeholder="Name of organisation",
                                 key="edit_secondment_org"
                             )
                             
-                            new_secondment_designation = st.text_input(
+                            edit_secondment_designation = st.text_input(
                                 "Secondment Designation (if applicable)",
                                 value=app.get('secondment_designation', ''),
                                 placeholder="e.g., Acting Director",
@@ -12522,27 +12534,27 @@ def edit_applicant():
                         st.markdown("---")
                         st.markdown("#### 📜 Terms of Service")
                         
-                        terms_of_service = st.radio(
+                        terms_options = ["Permanent & Pensionable", "Contract", "Temporary/Casual", "Other"]
+                        current_terms = app.get('terms_of_service', 'Permanent & Pensionable')
+                        if current_terms not in terms_options:
+                            current_terms = "Other"
+                        terms_index = terms_options.index(current_terms) if current_terms in terms_options else 0
+                        edit_terms_of_service = st.radio(
                             "Select Terms of Service",
-                            [
-                                "Permanent & Pensionable",
-                                "Contract",
-                                "Temporary/Casual",
-                                "Other"
-                            ],
+                            terms_options,
                             horizontal=True,
-                            index=0 if app.get('terms_of_service') == "Permanent & Pensionable" else 1 if app.get('terms_of_service') == "Contract" else 2 if app.get('terms_of_service') == "Temporary/Casual" else 0,
+                            index=terms_index,
                             key="edit_terms_of_service"
                         )
                         
-                        if terms_of_service == "Other":
-                            new_terms_of_service_other = st.text_input(
+                        if edit_terms_of_service == "Other":
+                            edit_terms_of_service_other = st.text_input(
                                 "Specify Other Terms of Service",
                                 value=app.get('terms_of_service_other', ''),
                                 placeholder="Enter your terms of service",
                                 key="edit_terms_of_service_other"
                             )
-                            terms_of_service = new_terms_of_service_other
+                            edit_terms_of_service = edit_terms_of_service_other
                         
                         st.markdown("---")
                         st.markdown("#### 💰 Salary Information")
@@ -12553,7 +12565,7 @@ def edit_applicant():
                                 gross_salary_val = float(app.get('gross_monthly_salary', 0))
                             except:
                                 gross_salary_val = 0
-                            new_gross_monthly_salary = st.number_input(
+                            edit_gross_monthly_salary = st.number_input(
                                 "Gross Monthly Salary (Kshs.)",
                                 min_value=0,
                                 value=gross_salary_val,
@@ -12565,7 +12577,7 @@ def edit_applicant():
                                 expected_salary_val = float(app.get('expected_gross_monthly_salary', 0))
                             except:
                                 expected_salary_val = 0
-                            new_expected_gross_monthly_salary = st.number_input(
+                            edit_expected_gross_monthly_salary = st.number_input(
                                 "Expected Gross Monthly Salary (Kshs.)",
                                 min_value=0,
                                 value=expected_salary_val,
@@ -12574,18 +12586,18 @@ def edit_applicant():
                             )
                         
                         # Display summary
-                        if new_public_institution or new_present_substantive_post:
+                        if edit_public_institution or edit_present_substantive_post:
                             st.markdown("---")
                             st.markdown("#### 📊 Public Service Summary")
                             st.info(f"""
-                            **Institution:** {new_public_institution or 'Not specified'}
-                            **Station:** {new_station or 'Not specified'}
-                            **Employment No.:** {new_employment_number or 'Not specified'}
-                            **Current Post:** {new_present_substantive_post or 'Not specified'}
-                            **Job Group:** {new_job_group or 'Not specified'}
-                            **Terms:** {terms_of_service}
-                            **Current Salary:** {f"Kshs. {new_gross_monthly_salary:,.0f}" if new_gross_monthly_salary > 0 else 'Not specified'}
-                            **Expected Salary:** {f"Kshs. {new_expected_gross_monthly_salary:,.0f}" if new_expected_gross_monthly_salary > 0 else 'Not specified'}
+                            **Institution:** {edit_public_institution or 'Not specified'}
+                            **Station:** {edit_station or 'Not specified'}
+                            **Employment No.:** {edit_employment_number or 'Not specified'}
+                            **Current Post:** {edit_present_substantive_post or 'Not specified'}
+                            **Job Group:** {edit_job_group or 'Not specified'}
+                            **Terms:** {edit_terms_of_service}
+                            **Current Salary:** {f"Kshs. {edit_gross_monthly_salary:,.0f}" if edit_gross_monthly_salary > 0 else 'Not specified'}
+                            **Expected Salary:** {f"Kshs. {edit_expected_gross_monthly_salary:,.0f}" if edit_expected_gross_monthly_salary > 0 else 'Not specified'}
                             """)
                     else:
                         st.info("📌 You selected 'No' - You are not currently in the Public Service.")
@@ -12595,7 +12607,7 @@ def edit_applicant():
                     
                     col1, col2 = st.columns(2)
                     with col1:
-                        new_convicted = st.radio(
+                        edit_convicted = st.radio(
                             "Have you ever been convicted of a criminal offence?",
                             ["No", "Yes"],
                             horizontal=True,
@@ -12603,7 +12615,7 @@ def edit_applicant():
                             key="edit_convicted"
                         )
                     with col2:
-                        new_dismissed = st.radio(
+                        edit_dismissed = st.radio(
                             "Have you ever been dismissed from employment?",
                             ["No", "Yes"],
                             horizontal=True,
@@ -12611,9 +12623,9 @@ def edit_applicant():
                             key="edit_dismissed"
                         )
                     
-                    if new_convicted == "Yes":
+                    if edit_convicted == "Yes":
                         st.warning("⚠️ Please provide details in the remarks section.")
-                    if new_dismissed == "Yes":
+                    if edit_dismissed == "Yes":
                         st.warning("⚠️ Please provide details in the remarks section.")
                 
                 # =========================================================
@@ -12626,98 +12638,191 @@ def edit_applicant():
                     st.markdown("#### A. KCSE Certificate")
                     col1, col2 = st.columns(2)
                     with col1:
-                        new_secondary_school = st.text_input("Name of Secondary School", value=app.get('secondary_school', ''), placeholder="Enter school name", key="edit_secondary_school")
-                        new_index_number = st.text_input("Index Number", value=app.get('index_number', ''), placeholder="e.g., 123456789", key="edit_index_number")
+                        edit_secondary_school = st.text_input("Name of Secondary School", value=app.get('secondary_school', ''), placeholder="Enter school name", key="edit_secondary_school")
+                        edit_index_number = st.text_input("Index Number", value=app.get('index_number', ''), placeholder="e.g., 123456789", key="edit_index_number")
                     with col2:
                         mean_grade_options = ["Select", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-"]
                         current_mean_grade = app['kcse_grade'] if app['kcse_grade'] in mean_grade_options else "Select"
                         mean_grade_index = mean_grade_options.index(current_mean_grade) if current_mean_grade in mean_grade_options else 0
-                        new_mean_grade = st.selectbox("Mean Grade", mean_grade_options, index=mean_grade_index, key="edit_mean_grade")
+                        edit_mean_grade = st.selectbox("Mean Grade", mean_grade_options, index=mean_grade_index, key="edit_mean_grade")
                         
-                        new_certificate_no = st.text_input("Certificate No.", value=app.get('certificate_no', ''), placeholder="Enter certificate number", key="edit_cert_no")
+                        edit_certificate_no = st.text_input("Certificate No.", value=app.get('certificate_no', ''), placeholder="Enter certificate number", key="edit_cert_no")
                         
                         try:
                             year_completed_val = int(app['year_completed']) if app['year_completed'] else 2000
                         except:
                             year_completed_val = 2000
-                        new_year_completed = st.number_input("Year of Completion", min_value=1980, max_value=2026, step=1, value=year_completed_val, key="edit_year_completed")
+                        edit_year_completed = st.number_input("Year of Completion", min_value=1980, max_value=2026, step=1, value=year_completed_val, key="edit_year_completed")
                     
                     st.markdown("---")
                     
-                    # Academic Qualifications
+                    # Academic Qualifications - EDITABLE
                     st.markdown("#### B. Academic Qualifications")
                     st.info("📌 Click the '+' button below the form to add academic qualifications.")
                     
-                    # Parse academic qualifications from remarks or use stored data
-                    # For now, just show the summary
-                    acad_count = len(st.session_state.academic_qualifications) if 'academic_qualifications' in st.session_state else 0
-                    st.write(f"**Academic Qualifications:** {acad_count} records")
-                    if acad_count > 0:
-                        for idx, qual in enumerate(st.session_state.academic_qualifications):
-                            st.write(f"- {qual.get('level', 'N/A')}: {qual.get('institution', 'N/A')} ({qual.get('year', 'N/A')})")
+                    if st.session_state.edit_academic_qualifications:
+                        for idx, qual in enumerate(st.session_state.edit_academic_qualifications):
+                            with st.expander(f"📜 Academic Qualification #{idx + 1}", expanded=True):
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    qual['level'] = st.selectbox(
+                                        "Qualification Level", 
+                                        ["Select", "Certificate", "Diploma", "Bachelor's Degree", "Master's Degree", "PhD", "Other"],
+                                        index=["Select", "Certificate", "Diploma", "Bachelor's Degree", "Master's Degree", "PhD", "Other"].index(qual.get('level', 'Select')) if qual.get('level', 'Select') in ["Select", "Certificate", "Diploma", "Bachelor's Degree", "Master's Degree", "PhD", "Other"] else 0,
+                                        key=f"edit_acad_level_{idx}"
+                                    )
+                                    qual['institution'] = st.text_input("Institution/University", value=qual.get('institution', ''), key=f"edit_acad_inst_{idx}")
+                                    qual['field'] = st.text_input("Field of Study", value=qual.get('field', ''), key=f"edit_acad_field_{idx}")
+                                with col2:
+                                    qual['year'] = st.number_input("Year of Graduation", min_value=1980, max_value=2026, value=qual.get('year', 2020), key=f"edit_acad_year_{idx}")
+                                    qual['cert_no'] = st.text_input("Certificate No.", value=qual.get('cert_no', ''), key=f"edit_acad_cert_{idx}")
+                                    qual['class'] = st.selectbox(
+                                        "Class/Award",
+                                        ["Select", "First Class Honours", "Second Class Honours (Upper)", "Second Class Honours (Lower)", "Pass", "Distinction", "Credit", "Merit"],
+                                        index=["Select", "First Class Honours", "Second Class Honours (Upper)", "Second Class Honours (Lower)", "Pass", "Distinction", "Credit", "Merit"].index(qual.get('class', 'Select')) if qual.get('class', 'Select') in ["Select", "First Class Honours", "Second Class Honours (Upper)", "Second Class Honours (Lower)", "Pass", "Distinction", "Credit", "Merit"] else 0,
+                                        key=f"edit_acad_class_{idx}"
+                                    )
+                    else:
+                        st.info("No academic qualifications added yet. Use the '+' button below.")
                     
                     st.markdown("---")
                     
-                    # Professional Qualifications
+                    # Professional Qualifications - EDITABLE
                     st.markdown("#### C. Professional Qualifications")
-                    prof_count = len(st.session_state.professional_qualifications) if 'professional_qualifications' in st.session_state else 0
-                    st.write(f"**Professional Qualifications:** {prof_count} records")
-                    if prof_count > 0:
-                        for idx, qual in enumerate(st.session_state.professional_qualifications):
-                            st.write(f"- {qual.get('name', 'N/A')}: {qual.get('institution', 'N/A')} ({qual.get('year', 'N/A')})")
+                    st.info("📌 Click the '+' button below the form to add professional certifications.")
+                    
+                    if st.session_state.edit_professional_qualifications:
+                        for idx, qual in enumerate(st.session_state.edit_professional_qualifications):
+                            with st.expander(f"📜 Professional Certification #{idx + 1}", expanded=True):
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    qual['institution'] = st.text_input("Institution/Provider", value=qual.get('institution', ''), key=f"edit_prof_inst_{idx}")
+                                    qual['name'] = st.text_input("Certificate Name", value=qual.get('name', ''), key=f"edit_prof_name_{idx}")
+                                with col2:
+                                    qual['year'] = st.number_input("Year of Completion", min_value=1980, max_value=2026, value=qual.get('year', 2020), key=f"edit_prof_year_{idx}")
+                                    qual['cert_no'] = st.text_input("Certificate No.", value=qual.get('cert_no', ''), key=f"edit_prof_cert_{idx}")
+                                    qual['expiry'] = st.date_input("Expiry Date (if applicable)", value=qual.get('expiry', None), key=f"edit_prof_expiry_{idx}")
+                    else:
+                        st.info("No professional certifications added yet. Use the '+' button below.")
                     
                     st.markdown("---")
                     
-                    # Other Courses
+                    # Other Courses - EDITABLE
                     st.markdown("#### D. Other Relevant Courses")
-                    other_count = len(st.session_state.other_courses) if 'other_courses' in st.session_state else 0
-                    st.write(f"**Other Courses:** {other_count} records")
-                    if other_count > 0:
-                        for idx, course in enumerate(st.session_state.other_courses):
-                            st.write(f"- {course.get('name', 'N/A')}: {course.get('institution', 'N/A')} ({course.get('year', 'N/A')})")
+                    st.info("📌 Click the '+' button below the form to add other courses.")
+                    
+                    if st.session_state.edit_other_courses:
+                        for idx, course in enumerate(st.session_state.edit_other_courses):
+                            with st.expander(f"📚 Other Course #{idx + 1}", expanded=True):
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    course['institution'] = st.text_input("Institution", value=course.get('institution', ''), key=f"edit_other_inst_{idx}")
+                                    course['name'] = st.text_input("Course Name", value=course.get('name', ''), key=f"edit_other_name_{idx}")
+                                with col2:
+                                    course['year'] = st.number_input("Year of Completion", min_value=1980, max_value=2026, value=course.get('year', 2020), key=f"edit_other_year_{idx}")
+                                    course['cert_no'] = st.text_input("Certificate No.", value=course.get('cert_no', ''), key=f"edit_other_cert_{idx}")
+                    else:
+                        st.info("No other courses added yet. Use the '+' button below.")
                     
                     st.markdown("---")
                     
-                    # Professional Memberships
+                    # Professional Memberships - EDITABLE
                     st.markdown("#### E. Professional Memberships")
-                    member_count = len(st.session_state.professional_memberships) if 'professional_memberships' in st.session_state else 0
-                    st.write(f"**Professional Memberships:** {member_count} records")
-                    if member_count > 0:
-                        for idx, member in enumerate(st.session_state.professional_memberships):
-                            st.write(f"- {member.get('body', 'N/A')} ({member.get('membership_type', 'N/A')})")
+                    st.info("📌 Click the '+' button below the form to add professional memberships.")
+                    
+                    if st.session_state.edit_professional_memberships:
+                        for idx, member in enumerate(st.session_state.edit_professional_memberships):
+                            with st.expander(f"🏛️ Professional Membership #{idx + 1}", expanded=True):
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    member['body'] = st.text_input("Professional Body", value=member.get('body', ''), key=f"edit_member_body_{idx}")
+                                    member['membership_type'] = st.selectbox(
+                                        "Membership Type",
+                                        ["Select", "Full", "Associate", "Student", "Fellow", "Honorary", "Life"],
+                                        index=["Select", "Full", "Associate", "Student", "Fellow", "Honorary", "Life"].index(member.get('membership_type', 'Select')) if member.get('membership_type', 'Select') in ["Select", "Full", "Associate", "Student", "Fellow", "Honorary", "Life"] else 0,
+                                        key=f"edit_member_type_{idx}"
+                                    )
+                                with col2:
+                                    member['reg_no'] = st.text_input("Registration/Membership Number", value=member.get('reg_no', ''), key=f"edit_member_reg_{idx}")
+                                    member['date_renewed'] = st.date_input("Date Renewed", value=member.get('date_renewed', None), key=f"edit_member_renewed_{idx}")
+                                    member['expiry_date'] = st.date_input("Expiry Date", value=member.get('expiry_date', None), key=f"edit_member_expiry_{idx}")
+                    else:
+                        st.info("No professional memberships added yet. Use the '+' button below.")
                 
                 # =========================================================
                 # TAB 5: WORK EXPERIENCE
                 # =========================================================
                 with tab5:
                     st.markdown("### 💼 Work Experience")
-                    work_count = len(st.session_state.work_experience) if 'work_experience' in st.session_state else 0
-                    st.write(f"**Work Experience:** {work_count} records")
-                    if work_count > 0:
-                        for idx, exp in enumerate(st.session_state.work_experience):
-                            st.write(f"- {exp.get('position', 'N/A')} at {exp.get('organization', 'N/A')} ({exp.get('start_date', 'N/A')} - {exp.get('end_date', 'N/A')})")
+                    st.info("📌 Click the '+' button below the form to add work experience.")
+                    
+                    if st.session_state.edit_work_experience:
+                        for idx, exp in enumerate(st.session_state.edit_work_experience):
+                            with st.expander(f"💼 Work Experience #{idx + 1}: {exp.get('position', 'New Position')}", expanded=True):
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    exp['position'] = st.text_input("Position Held", value=exp.get('position', ''), key=f"edit_work_pos_{idx}")
+                                    exp['organization'] = st.text_input("Organization/Company", value=exp.get('organization', ''), key=f"edit_work_org_{idx}")
+                                    exp['duties'] = st.text_area("Nature of Work/Key Duties", value=exp.get('duties', ''), height=80, key=f"edit_work_duties_{idx}")
+                                with col2:
+                                    exp['job_scale'] = st.text_input("Job Scale/Grade", value=exp.get('job_scale', ''), key=f"edit_work_scale_{idx}")
+                                    exp['salary'] = st.number_input("Gross Monthly Salary (Kshs.)", min_value=0, value=exp.get('salary', 0), step=1000, key=f"edit_work_salary_{idx}")
+                                    
+                                    start_date_val = exp.get('start_date', None)
+                                    if start_date_val is None or start_date_val == '':
+                                        start_date_val = datetime.now().date()
+                                    
+                                    exp['start_date'] = st.date_input(
+                                        "Start Date", 
+                                        value=start_date_val,
+                                        min_value=datetime(1900, 1, 1).date(),
+                                        max_value=datetime(2100, 12, 31).date(),
+                                        key=f"edit_work_start_{idx}"
+                                    )
+                                    
+                                    end_date_val = exp.get('end_date', None)
+                                    if end_date_val is None or end_date_val == '':
+                                        end_date_val = datetime.now().date()
+                                    
+                                    exp['end_date'] = st.date_input(
+                                        "End Date", 
+                                        value=end_date_val,
+                                        min_value=datetime(1900, 1, 1).date(),
+                                        max_value=datetime(2100, 12, 31).date(),
+                                        key=f"edit_work_end_{idx}"
+                                    )
+                                    
+                                    exp['current'] = st.checkbox(
+                                        "Currently working here", 
+                                        value=exp.get('current', False), 
+                                        key=f"edit_work_current_{idx}"
+                                    )
+                                    
+                                    if exp.get('current', False):
+                                        exp['end_date'] = None
                     else:
-                        st.info("No work experience records added yet.")
+                        st.info("No work experience added yet. Use the '+' button below.")
                 
                 # =========================================================
                 # TAB 6: REFEREES
                 # =========================================================
                 with tab6:
                     st.markdown("### 👥 Referees")
+                    st.info("Please provide three professional referees who can vouch for your work")
                     
                     # Referee 1
                     st.markdown("#### 📌 Referee 1")
                     col1, col2 = st.columns(2)
                     with col1:
-                        new_referee1_name = st.text_input("Full Names", value=app.get('referee1_name', ''), placeholder="Full name", key="edit_ref1_name")
-                        new_referee1_occupation = st.text_input("Occupation", value=app.get('referee1_occupation', ''), placeholder="e.g., HR Manager", key="edit_ref1_occ")
-                        new_referee1_postal_address = st.text_input("Postal Address", value=app.get('referee1_postal_address', ''), placeholder="e.g., P.O. Box 123", key="edit_ref1_postal")
+                        edit_referee1_name = st.text_input("Full Names", value=app.get('referee1_name', ''), placeholder="Full name", key="edit_ref1_name")
+                        edit_referee1_occupation = st.text_input("Occupation", value=app.get('referee1_occupation', ''), placeholder="e.g., HR Manager", key="edit_ref1_occ")
+                        edit_referee1_postal_address = st.text_input("Postal Address", value=app.get('referee1_postal_address', ''), placeholder="e.g., P.O. Box 123", key="edit_ref1_postal")
                     with col2:
-                        new_referee1_post_code = st.text_input("Post Code", value=app.get('referee1_post_code', ''), placeholder="e.g., 60100", key="edit_ref1_code")
-                        new_referee1_city = st.text_input("Postal City/Town", value=app.get('referee1_city', ''), placeholder="e.g., Nairobi", key="edit_ref1_city")
-                        new_referee1_mobile = st.text_input("Mobile Number", value=app.get('referee1_mobile', ''), placeholder="07XXXXXXXX", key="edit_ref1_mobile")
-                        new_referee1_email = st.text_input("E-Mail Address", value=app.get('referee1_email', ''), placeholder="email@example.com", key="edit_ref1_email")
-                        new_referee1_period = st.text_input("Period known (e.g., 5 years)", value=app.get('referee1_period', ''), placeholder="e.g., 5 years", key="edit_ref1_period")
+                        edit_referee1_post_code = st.text_input("Post Code", value=app.get('referee1_post_code', ''), placeholder="e.g., 60100", key="edit_ref1_code")
+                        edit_referee1_city = st.text_input("Postal City/Town", value=app.get('referee1_city', ''), placeholder="e.g., Nairobi", key="edit_ref1_city")
+                        edit_referee1_mobile = st.text_input("Mobile Number", value=app.get('referee1_mobile', ''), placeholder="07XXXXXXXX", key="edit_ref1_mobile")
+                        edit_referee1_email = st.text_input("E-Mail Address", value=app.get('referee1_email', ''), placeholder="email@example.com", key="edit_ref1_email")
+                        edit_referee1_period = st.text_input("Period known (e.g., 5 years)", value=app.get('referee1_period', ''), placeholder="e.g., 5 years", key="edit_ref1_period")
                     
                     st.markdown("---")
                     
@@ -12725,15 +12830,15 @@ def edit_applicant():
                     st.markdown("#### 📌 Referee 2")
                     col1, col2 = st.columns(2)
                     with col1:
-                        new_referee2_name = st.text_input("Full Names", value=app.get('referee2_name', ''), placeholder="Full name", key="edit_ref2_name")
-                        new_referee2_occupation = st.text_input("Occupation", value=app.get('referee2_occupation', ''), placeholder="e.g., HR Manager", key="edit_ref2_occ")
-                        new_referee2_postal_address = st.text_input("Postal Address", value=app.get('referee2_postal_address', ''), placeholder="e.g., P.O. Box 123", key="edit_ref2_postal")
+                        edit_referee2_name = st.text_input("Full Names", value=app.get('referee2_name', ''), placeholder="Full name", key="edit_ref2_name")
+                        edit_referee2_occupation = st.text_input("Occupation", value=app.get('referee2_occupation', ''), placeholder="e.g., HR Manager", key="edit_ref2_occ")
+                        edit_referee2_postal_address = st.text_input("Postal Address", value=app.get('referee2_postal_address', ''), placeholder="e.g., P.O. Box 123", key="edit_ref2_postal")
                     with col2:
-                        new_referee2_post_code = st.text_input("Post Code", value=app.get('referee2_post_code', ''), placeholder="e.g., 60100", key="edit_ref2_code")
-                        new_referee2_city = st.text_input("Postal City/Town", value=app.get('referee2_city', ''), placeholder="e.g., Nairobi", key="edit_ref2_city")
-                        new_referee2_mobile = st.text_input("Mobile Number", value=app.get('referee2_mobile', ''), placeholder="07XXXXXXXX", key="edit_ref2_mobile")
-                        new_referee2_email = st.text_input("E-Mail Address", value=app.get('referee2_email', ''), placeholder="email@example.com", key="edit_ref2_email")
-                        new_referee2_period = st.text_input("Period known (e.g., 5 years)", value=app.get('referee2_period', ''), placeholder="e.g., 5 years", key="edit_ref2_period")
+                        edit_referee2_post_code = st.text_input("Post Code", value=app.get('referee2_post_code', ''), placeholder="e.g., 60100", key="edit_ref2_code")
+                        edit_referee2_city = st.text_input("Postal City/Town", value=app.get('referee2_city', ''), placeholder="e.g., Nairobi", key="edit_ref2_city")
+                        edit_referee2_mobile = st.text_input("Mobile Number", value=app.get('referee2_mobile', ''), placeholder="07XXXXXXXX", key="edit_ref2_mobile")
+                        edit_referee2_email = st.text_input("E-Mail Address", value=app.get('referee2_email', ''), placeholder="email@example.com", key="edit_ref2_email")
+                        edit_referee2_period = st.text_input("Period known (e.g., 5 years)", value=app.get('referee2_period', ''), placeholder="e.g., 5 years", key="edit_ref2_period")
                     
                     st.markdown("---")
                     
@@ -12741,15 +12846,15 @@ def edit_applicant():
                     st.markdown("#### 📌 Referee 3")
                     col1, col2 = st.columns(2)
                     with col1:
-                        new_referee3_name = st.text_input("Full Names", value=app.get('referee3_name', ''), placeholder="Full name", key="edit_ref3_name")
-                        new_referee3_occupation = st.text_input("Occupation", value=app.get('referee3_occupation', ''), placeholder="e.g., HR Manager", key="edit_ref3_occ")
-                        new_referee3_postal_address = st.text_input("Postal Address", value=app.get('referee3_postal_address', ''), placeholder="e.g., P.O. Box 123", key="edit_ref3_postal")
+                        edit_referee3_name = st.text_input("Full Names", value=app.get('referee3_name', ''), placeholder="Full name", key="edit_ref3_name")
+                        edit_referee3_occupation = st.text_input("Occupation", value=app.get('referee3_occupation', ''), placeholder="e.g., HR Manager", key="edit_ref3_occ")
+                        edit_referee3_postal_address = st.text_input("Postal Address", value=app.get('referee3_postal_address', ''), placeholder="e.g., P.O. Box 123", key="edit_ref3_postal")
                     with col2:
-                        new_referee3_post_code = st.text_input("Post Code", value=app.get('referee3_post_code', ''), placeholder="e.g., 60100", key="edit_ref3_code")
-                        new_referee3_city = st.text_input("Postal City/Town", value=app.get('referee3_city', ''), placeholder="e.g., Nairobi", key="edit_ref3_city")
-                        new_referee3_mobile = st.text_input("Mobile Number", value=app.get('referee3_mobile', ''), placeholder="07XXXXXXXX", key="edit_ref3_mobile")
-                        new_referee3_email = st.text_input("E-Mail Address", value=app.get('referee3_email', ''), placeholder="email@example.com", key="edit_ref3_email")
-                        new_referee3_period = st.text_input("Period known (e.g., 5 years)", value=app.get('referee3_period', ''), placeholder="e.g., 5 years", key="edit_ref3_period")
+                        edit_referee3_post_code = st.text_input("Post Code", value=app.get('referee3_post_code', ''), placeholder="e.g., 60100", key="edit_ref3_code")
+                        edit_referee3_city = st.text_input("Postal City/Town", value=app.get('referee3_city', ''), placeholder="e.g., Nairobi", key="edit_ref3_city")
+                        edit_referee3_mobile = st.text_input("Mobile Number", value=app.get('referee3_mobile', ''), placeholder="07XXXXXXXX", key="edit_ref3_mobile")
+                        edit_referee3_email = st.text_input("E-Mail Address", value=app.get('referee3_email', ''), placeholder="email@example.com", key="edit_ref3_email")
+                        edit_referee3_period = st.text_input("Period known (e.g., 5 years)", value=app.get('referee3_period', ''), placeholder="e.g., 5 years", key="edit_ref3_period")
                 
                 # =========================================================
                 # TAB 7: DOCUMENTS
@@ -12763,24 +12868,23 @@ def edit_applicant():
                     
                     with col1:
                         st.markdown("#### 📄 Personal Documents")
-                        # Show existing documents or upload new
                         st.caption("Upload new document to replace existing")
-                        new_national_id = st.file_uploader("National ID Card/Passport*", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_id")
-                        new_birth_cert = st.file_uploader("Birth Certificate", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_birth")
-                        new_passport_photo = st.file_uploader("Passport Size Photo", type=["jpg", "jpeg", "png"], key="edit_doc_photo")
+                        edit_national_id = st.file_uploader("National ID Card/Passport*", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_id")
+                        edit_birth_cert = st.file_uploader("Birth Certificate", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_birth")
+                        edit_passport_photo = st.file_uploader("Passport Size Photo", type=["jpg", "jpeg", "png"], key="edit_doc_photo")
                         
                         st.markdown("#### 🎓 KCSE Certificate")
-                        new_kcse_cert = st.file_uploader("KCSE Certificate", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_kcse")
+                        edit_kcse_cert = st.file_uploader("KCSE Certificate", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_kcse")
                     
                     with col2:
                         st.markdown("#### 🎓 Academic Certificates")
-                        new_degree_cert = st.file_uploader("Degree/Diploma/Certificate Certificates", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_degree")
+                        edit_degree_cert = st.file_uploader("Degree/Diploma/Certificate Certificates", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_degree")
                         
                         st.markdown("#### 📜 Professional Certificates")
-                        new_prof_cert = st.file_uploader("Professional Certificates", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_prof")
+                        edit_prof_cert = st.file_uploader("Professional Certificates", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_prof")
                         
                         st.markdown("#### 📋 Other Certificates")
-                        new_other_docs = st.file_uploader("Other Certificates", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_other", accept_multiple_files=True)
+                        edit_other_docs = st.file_uploader("Other Certificates", type=["pdf", "jpg", "jpeg", "png"], key="edit_doc_other", accept_multiple_files=True)
                     
                     st.markdown("---")
                     st.markdown("#### ✅ Document Checklist")
@@ -12801,13 +12905,153 @@ def edit_applicant():
                 st.markdown("---")
                 st.markdown("### ✍️ Declaration")
                 
-                new_declaration = st.checkbox("I declare that all information provided is true and accurate to the best of my knowledge.", value=app.get('declaration_accepted') == "Yes", key="edit_declaration")
+                edit_declaration = st.checkbox("I declare that all information provided is true and accurate to the best of my knowledge.", value=app.get('declaration_accepted') == "Yes", key="edit_declaration")
                 
-                new_remarks = st.text_area("Additional Remarks / Explanations", 
+                edit_remarks = st.text_area("Additional Remarks / Explanations", 
                                       value=app.get('remarks', ''),
                                       placeholder="Any additional information or explanations regarding your application...",
                                       height=100,
                                       key="edit_remarks")
+                
+                # =========================================================
+                # BUTTONS OUTSIDE THE FORM (For adding/removing items)
+                # =========================================================
+                st.markdown("---")
+                st.subheader("📋 Manage Your Lists")
+                st.info("Click the buttons below to add items. Each item will appear as an expandable section where you can fill in the details.")
+                
+                col1, col2, col3, col4, col5 = st.columns(5)
+                
+                with col1:
+                    if st.button("➕ Add Academic Qualification", use_container_width=True, key="edit_add_acad"):
+                        st.session_state.edit_academic_qualifications.append({
+                            'level': 'Select',
+                            'institution': '',
+                            'field': '',
+                            'year': 2020,
+                            'cert_no': '',
+                            'class': 'Select'
+                        })
+                        st.rerun()
+                
+                with col2:
+                    if st.button("➕ Add Professional Cert", use_container_width=True, key="edit_add_prof"):
+                        st.session_state.edit_professional_qualifications.append({
+                            'institution': '',
+                            'name': '',
+                            'year': 2020,
+                            'cert_no': '',
+                            'expiry': None
+                        })
+                        st.rerun()
+                
+                with col3:
+                    if st.button("➕ Add Other Course", use_container_width=True, key="edit_add_other"):
+                        st.session_state.edit_other_courses.append({
+                            'institution': '',
+                            'name': '',
+                            'year': 2020,
+                            'cert_no': ''
+                        })
+                        st.rerun()
+                
+                with col4:
+                    if st.button("➕ Add Membership", use_container_width=True, key="edit_add_member"):
+                        st.session_state.edit_professional_memberships.append({
+                            'body': '',
+                            'membership_type': 'Select',
+                            'reg_no': '',
+                            'date_renewed': None,
+                            'expiry_date': None
+                        })
+                        st.rerun()
+                
+                with col5:
+                    if st.button("➕ Add Work Experience", use_container_width=True, key="edit_add_work"):
+                        st.session_state.edit_work_experience.append({
+                            'position': '',
+                            'organization': '',
+                            'duties': '',
+                            'job_scale': '',
+                            'salary': 0,
+                            'start_date': None,
+                            'end_date': None,
+                            'current': False
+                        })
+                        st.rerun()
+                
+                # =========================================================
+                # REMOVE BUTTONS FOR EACH LIST
+                # =========================================================
+                
+                if st.session_state.edit_academic_qualifications:
+                    st.markdown("#### Remove Academic Qualifications")
+                    cols = st.columns(min(len(st.session_state.edit_academic_qualifications), 4))
+                    for idx, qual in enumerate(st.session_state.edit_academic_qualifications):
+                        col_idx = idx % len(cols)
+                        with cols[col_idx]:
+                            level_display = qual.get('level', 'New') if qual.get('level', 'New') != 'Select' else f"#{idx+1}"
+                            if st.button(f"🗑️ Remove {level_display}", key=f"edit_remove_acad_{idx}"):
+                                st.session_state.edit_academic_qualifications.pop(idx)
+                                st.rerun()
+                
+                if st.session_state.edit_professional_qualifications:
+                    st.markdown("#### Remove Professional Certifications")
+                    cols = st.columns(min(len(st.session_state.edit_professional_qualifications), 4))
+                    for idx, qual in enumerate(st.session_state.edit_professional_qualifications):
+                        col_idx = idx % len(cols)
+                        with cols[col_idx]:
+                            name_display = qual.get('name', 'New')[:15] if qual.get('name', 'New') else f"#{idx+1}"
+                            if st.button(f"🗑️ Remove {name_display}", key=f"edit_remove_prof_{idx}"):
+                                st.session_state.edit_professional_qualifications.pop(idx)
+                                st.rerun()
+                
+                if st.session_state.edit_other_courses:
+                    st.markdown("#### Remove Other Courses")
+                    cols = st.columns(min(len(st.session_state.edit_other_courses), 4))
+                    for idx, course in enumerate(st.session_state.edit_other_courses):
+                        col_idx = idx % len(cols)
+                        with cols[col_idx]:
+                            name_display = course.get('name', 'New')[:15] if course.get('name', 'New') else f"#{idx+1}"
+                            if st.button(f"🗑️ Remove {name_display}", key=f"edit_remove_other_{idx}"):
+                                st.session_state.edit_other_courses.pop(idx)
+                                st.rerun()
+                
+                if st.session_state.edit_professional_memberships:
+                    st.markdown("#### Remove Memberships")
+                    cols = st.columns(min(len(st.session_state.edit_professional_memberships), 4))
+                    for idx, member in enumerate(st.session_state.edit_professional_memberships):
+                        col_idx = idx % len(cols)
+                        with cols[col_idx]:
+                            body_display = member.get('body', 'New')[:15] if member.get('body', 'New') else f"#{idx+1}"
+                            if st.button(f"🗑️ Remove {body_display}", key=f"edit_remove_member_{idx}"):
+                                st.session_state.edit_professional_memberships.pop(idx)
+                                st.rerun()
+                
+                if st.session_state.edit_work_experience:
+                    st.markdown("#### Remove Work Experience")
+                    cols = st.columns(min(len(st.session_state.edit_work_experience), 4))
+                    for idx, exp in enumerate(st.session_state.edit_work_experience):
+                        col_idx = idx % len(cols)
+                        with cols[col_idx]:
+                            pos_display = exp.get('position', 'New')[:15] if exp.get('position', 'New') else f"#{idx+1}"
+                            if st.button(f"🗑️ Remove {pos_display}", key=f"edit_remove_work_{idx}"):
+                                st.session_state.edit_work_experience.pop(idx)
+                                st.rerun()
+                
+                # =========================================================
+                # CLEAR ALL BUTTON
+                # =========================================================
+                st.markdown("---")
+                col1, col2, col3 = st.columns([1, 1, 3])
+                with col1:
+                    if st.button("🗑️ Clear All Lists", use_container_width=True, type="secondary", key="edit_clear_all"):
+                        st.session_state.edit_academic_qualifications = []
+                        st.session_state.edit_professional_qualifications = []
+                        st.session_state.edit_other_courses = []
+                        st.session_state.edit_professional_memberships = []
+                        st.session_state.edit_work_experience = []
+                        st.rerun()
                 
                 # =========================================================
                 # SAVE BUTTON
@@ -12825,7 +13069,90 @@ def edit_applicant():
                         try:
                             cursor = conn.cursor()
                             
-                            # Build values for UPDATE
+                            # Build qualification summary
+                            edit_qual_summary = f"KCSE: {edit_mean_grade if edit_mean_grade != 'Select' else 'N/A'} ({edit_year_completed})"
+                            if st.session_state.edit_academic_qualifications:
+                                for acad in st.session_state.edit_academic_qualifications:
+                                    if acad.get('level') and acad.get('institution') and acad.get('level') != 'Select':
+                                        edit_qual_summary += f" | {acad['level']}: {acad['institution']} ({acad.get('year', '')})"
+                            
+                            # Build comprehensive remarks
+                            edit_full_remarks = f"""
+                    === APPLICATION DETAILS ===
+                    Position: {edit_position_applied}
+                    Advert Ref: {edit_advertisement_ref}
+                    Department: {edit_department}
+                    Source: {edit_source}
+                    Application Date: {edit_application_date}
+                    
+                    === PERSONAL INFORMATION ===
+                    Name: {edit_name}
+                    Gender: {edit_gender if edit_gender != 'Select' else 'N/A'}
+                    ID Number: {edit_id_number}
+                    Year of Birth: {edit_yob}
+                    KRA PIN: {edit_kra_pin if edit_kra_pin else 'N/A'}
+                    Ethnicity: {edit_ethnicity if edit_ethnicity != 'Select Ethnicity' else 'N/A'}
+                    Disability: {edit_disability if edit_disability != 'None' else 'N/A'}
+                    NCPWD Number: {edit_ncpwd_number if edit_ncpwd_number else 'N/A'}
+                    Nationality: {edit_nationality if edit_nationality != 'Select' else 'N/A'}
+                    Home County: {edit_home_county if edit_home_county else 'N/A'}
+                    Home Constituency: {edit_home_constituency if edit_home_constituency else 'N/A'}
+                    Sub County: {edit_subcounty if edit_subcounty else 'N/A'}
+                    Home Ward: {edit_home_ward if edit_home_ward else 'N/A'}
+                    Postal Address: {edit_postal_address if edit_postal_address else 'N/A'}
+                    Postal Code: {edit_postal_code if edit_postal_code else 'N/A'}
+                    Town: {edit_town if edit_town else 'N/A'}
+                    Phone: {edit_contact if edit_contact else 'N/A'}
+                    Email: {edit_email if edit_email else 'N/A'}
+                    Practicing Licence: {edit_practicing_licence if edit_practicing_licence else 'N/A'}
+                    
+                    === PUBLIC SERVICE ===
+                    In Public Service: {edit_in_public_service}
+                    Institution Category: {edit_public_institution_category if edit_public_institution_category != 'Select' else 'N/A'}
+                    Institution: {edit_public_institution if edit_public_institution else 'N/A'}
+                    Station: {edit_station if edit_station else 'N/A'}
+                    Employment No.: {edit_employment_number if edit_employment_number else 'N/A'}
+                    Present Substantive Post: {edit_present_substantive_post if edit_present_substantive_post else 'N/A'}
+                    Job Group: {edit_job_group if edit_job_group else 'N/A'}
+                    Date of Current Appointment: {edit_date_of_current_appointment.strftime('%Y-%m-%d') if edit_date_of_current_appointment else 'N/A'}
+                    Upgraded Post: {edit_upgraded_post if edit_upgraded_post else 'N/A'}
+                    Effective Date Previous Appointment: {edit_effective_date_previous_appointment.strftime('%Y-%m-%d') if edit_effective_date_previous_appointment else 'N/A'}
+                    Secondment Organisation: {edit_secondment_organisation if edit_secondment_organisation else 'N/A'}
+                    Secondment Designation: {edit_secondment_designation if edit_secondment_designation else 'N/A'}
+                    Terms of Service: {edit_terms_of_service if edit_terms_of_service else 'N/A'}
+                    Gross Monthly Salary: {f"Kshs. {edit_gross_monthly_salary:,.0f}" if edit_gross_monthly_salary > 0 else 'N/A'}
+                    Expected Gross Monthly Salary: {f"Kshs. {edit_expected_gross_monthly_salary:,.0f}" if edit_expected_gross_monthly_salary > 0 else 'N/A'}
+                    
+                    === LEGAL DECLARATIONS ===
+                    Convicted: {edit_convicted}
+                    Dismissed: {edit_dismissed}
+                    
+                    === EDUCATION ===
+                    KCSE School: {edit_secondary_school if edit_secondary_school else 'N/A'}
+                    KCSE Index: {edit_index_number if edit_index_number else 'N/A'}
+                    KCSE Grade: {edit_mean_grade if edit_mean_grade != 'Select' else 'N/A'}
+                    KCSE Cert No: {edit_certificate_no if edit_certificate_no else 'N/A'}
+                    KCSE Year: {edit_year_completed if edit_year_completed else 'N/A'}
+                    
+                    === QUALIFICATIONS ===
+                    Academic Qualifications: {len(st.session_state.edit_academic_qualifications)} records
+                    Professional Qualifications: {len(st.session_state.edit_professional_qualifications)} records
+                    Other Courses: {len(st.session_state.edit_other_courses)} records
+                    Professional Memberships: {len(st.session_state.edit_professional_memberships)} records
+                    
+                    === WORK EXPERIENCE ===
+                    Number of Positions: {len(st.session_state.edit_work_experience)} records
+                    
+                    === REFEREES ===
+                    Referee 1: {edit_referee1_name if edit_referee1_name else 'N/A'} - {edit_referee1_occupation if edit_referee1_occupation else 'N/A'}
+                    Referee 2: {edit_referee2_name if edit_referee2_name else 'N/A'} - {edit_referee2_occupation if edit_referee2_occupation else 'N/A'}
+                    Referee 3: {edit_referee3_name if edit_referee3_name else 'N/A'} - {edit_referee3_occupation if edit_referee3_occupation else 'N/A'}
+                    
+                    === ADDITIONAL ===
+                    {edit_remarks if edit_remarks else 'N/A'}
+                    """
+                            
+                            # Update the staff record
                             update_query = """
                                 UPDATE staff SET 
                                     name = %s, gender = %s, id_number = %s, yob = %s,
@@ -12874,92 +13201,92 @@ def edit_applicant():
                             """
                             
                             values = (
-                                new_name,
-                                new_gender if new_gender != 'Select' else '',
-                                new_id,
-                                new_yob,
-                                new_ethnicity if new_ethnicity != 'Select Ethnicity' else '',
-                                new_disability if new_disability != 'None' else '',
-                                new_contact,
-                                new_email,
-                                new_subcounty,
-                                new_home_ward,
-                                new_qualifications if 'new_qualifications' in locals() else '',
-                                new_remarks,
-                                new_status,
-                                new_position,
-                                new_application_date.strftime("%Y-%m-%d") if new_application_date else None,
-                                new_interview_date.strftime("%Y-%m-%d") if new_interview_date else None,
-                                new_interview_score,
-                                new_mean_grade if new_mean_grade != 'Select' else '',
-                                new_institution if 'new_institution' in locals() else '',
-                                new_graduation_year if 'new_graduation_year' in locals() else None,
-                                new_professional_body if 'new_professional_body' in locals() else '',
-                                new_experience_years if 'new_experience_years' in locals() else 0,
-                                new_current_employer if 'new_current_employer' in locals() else '',
-                                new_referee1_name if 'new_referee1_name' in locals() else '',
-                                new_referee1_mobile if 'new_referee1_mobile' in locals() else '',
-                                new_referee2_name if 'new_referee2_name' in locals() else '',
-                                new_referee2_mobile if 'new_referee2_mobile' in locals() else '',
+                                edit_name,
+                                edit_gender if edit_gender != 'Select' else '',
+                                edit_id_number,
+                                edit_yob,
+                                edit_ethnicity if edit_ethnicity != 'Select Ethnicity' else '',
+                                edit_disability if edit_disability != 'None' else '',
+                                edit_contact,
+                                edit_email,
+                                edit_subcounty,
+                                edit_home_ward,
+                                edit_qual_summary,
+                                edit_full_remarks,
+                                edit_status,
+                                edit_position_applied,
+                                edit_application_date.strftime("%Y-%m-%d") if edit_application_date else None,
+                                edit_interview_date.strftime("%Y-%m-%d") if edit_interview_date else None,
+                                edit_interview_score,
+                                edit_mean_grade if edit_mean_grade != 'Select' else '',
+                                '',  # institution - not in edit form
+                                None,  # graduation_year - not in edit form
+                                '',  # professional_body - not in edit form
+                                0,  # experience_years - not in edit form
+                                '',  # current_employer - not in edit form
+                                edit_referee1_name if edit_referee1_name else '',
+                                edit_referee1_mobile if edit_referee1_mobile else '',
+                                edit_referee2_name if edit_referee2_name else '',
+                                edit_referee2_mobile if edit_referee2_mobile else '',
                                 'Yes',
-                                'Yes' if new_declaration else 'No',
-                                new_advert_ref if 'new_advert_ref' in locals() else '',
-                                new_shortlist_date.strftime("%Y-%m-%d") if new_shortlist_date else None,
-                                new_practicing_licence if 'new_practicing_licence' in locals() else '',
-                                new_kra_pin if 'new_kra_pin' in locals() else '',
-                                new_ncpwd_number if 'new_ncpwd_number' in locals() else '',
-                                new_nationality if new_nationality != 'Select' else '',
-                                new_home_county if 'new_home_county' in locals() else '',
-                                new_home_constituency if 'new_home_constituency' in locals() else '',
-                                new_home_ward if 'new_home_ward' in locals() else '',
-                                new_postal_address if 'new_postal_address' in locals() else '',
-                                new_postal_code if 'new_postal_code' in locals() else '',
-                                new_town if 'new_town' in locals() else '',
-                                new_alt_contact_name if 'new_alt_contact_name' in locals() else '',
-                                new_alt_contact_mobile if 'new_alt_contact_mobile' in locals() else '',
-                                new_secondary_school if 'new_secondary_school' in locals() else '',
-                                new_index_number if 'new_index_number' in locals() else '',
-                                new_certificate_no if 'new_certificate_no' in locals() else '',
-                                new_year_completed if 'new_year_completed' in locals() else None,
-                                new_referee1_occupation if 'new_referee1_occupation' in locals() else '',
-                                new_referee1_postal_address if 'new_referee1_postal_address' in locals() else '',
-                                new_referee1_post_code if 'new_referee1_post_code' in locals() else '',
-                                new_referee1_city if 'new_referee1_city' in locals() else '',
-                                new_referee1_email if 'new_referee1_email' in locals() else '',
-                                new_referee1_period if 'new_referee1_period' in locals() else '',
-                                new_referee2_occupation if 'new_referee2_occupation' in locals() else '',
-                                new_referee2_postal_address if 'new_referee2_postal_address' in locals() else '',
-                                new_referee2_post_code if 'new_referee2_post_code' in locals() else '',
-                                new_referee2_city if 'new_referee2_city' in locals() else '',
-                                new_referee2_email if 'new_referee2_email' in locals() else '',
-                                new_referee2_period if 'new_referee2_period' in locals() else '',
-                                new_referee3_name if 'new_referee3_name' in locals() else '',
-                                new_referee3_occupation if 'new_referee3_occupation' in locals() else '',
-                                new_referee3_postal_address if 'new_referee3_postal_address' in locals() else '',
-                                new_referee3_post_code if 'new_referee3_post_code' in locals() else '',
-                                new_referee3_city if 'new_referee3_city' in locals() else '',
-                                new_referee3_mobile if 'new_referee3_mobile' in locals() else '',
-                                new_referee3_email if 'new_referee3_email' in locals() else '',
-                                new_referee3_period if 'new_referee3_period' in locals() else '',
-                                'Yes' if in_public_service == "Yes" else 'No',
-                                new_public_institution_category if 'new_public_institution_category' in locals() and new_public_institution_category != 'Select' else '',
-                                new_public_institution if 'new_public_institution' in locals() else '',
-                                new_station if 'new_station' in locals() else '',
-                                new_employment_number if 'new_employment_number' in locals() else '',
-                                new_present_substantive_post if 'new_present_substantive_post' in locals() else '',
-                                new_job_group if 'new_job_group' in locals() else '',
-                                new_date_of_current_appointment.strftime("%Y-%m-%d") if 'new_date_of_current_appointment' in locals() and new_date_of_current_appointment else None,
-                                new_upgraded_post if 'new_upgraded_post' in locals() else '',
-                                new_effective_date_previous_appointment.strftime("%Y-%m-%d") if 'new_effective_date_previous_appointment' in locals() and new_effective_date_previous_appointment else None,
-                                new_secondment_organisation if 'new_secondment_organisation' in locals() else '',
-                                new_secondment_designation if 'new_secondment_designation' in locals() else '',
-                                terms_of_service if 'terms_of_service' in locals() else '',
-                                new_gross_monthly_salary if 'new_gross_monthly_salary' in locals() else 0,
-                                new_expected_gross_monthly_salary if 'new_expected_gross_monthly_salary' in locals() else 0,
-                                'Yes' if new_convicted == "Yes" else 'No',
-                                'Yes' if new_dismissed == "Yes" else 'No',
-                                new_source if 'new_source' in locals() and new_source != 'Select Source' else '',
-                                new_department if 'new_department' in locals() else '',
+                                'Yes' if edit_declaration else 'No',
+                                edit_advertisement_ref if edit_advertisement_ref else '',
+                                edit_shortlist_date.strftime("%Y-%m-%d") if edit_shortlist_date else None,
+                                edit_practicing_licence if edit_practicing_licence else '',
+                                edit_kra_pin if edit_kra_pin else '',
+                                edit_ncpwd_number if edit_ncpwd_number else '',
+                                edit_nationality if edit_nationality != 'Select' else '',
+                                edit_home_county if edit_home_county else '',
+                                edit_home_constituency if edit_home_constituency else '',
+                                edit_home_ward if edit_home_ward else '',
+                                edit_postal_address if edit_postal_address else '',
+                                edit_postal_code if edit_postal_code else '',
+                                edit_town if edit_town else '',
+                                edit_alt_contact_name if edit_alt_contact_name else '',
+                                edit_alt_contact_mobile if edit_alt_contact_mobile else '',
+                                edit_secondary_school if edit_secondary_school else '',
+                                edit_index_number if edit_index_number else '',
+                                edit_certificate_no if edit_certificate_no else '',
+                                edit_year_completed if edit_year_completed else None,
+                                edit_referee1_occupation if edit_referee1_occupation else '',
+                                edit_referee1_postal_address if edit_referee1_postal_address else '',
+                                edit_referee1_post_code if edit_referee1_post_code else '',
+                                edit_referee1_city if edit_referee1_city else '',
+                                edit_referee1_email if edit_referee1_email else '',
+                                edit_referee1_period if edit_referee1_period else '',
+                                edit_referee2_occupation if edit_referee2_occupation else '',
+                                edit_referee2_postal_address if edit_referee2_postal_address else '',
+                                edit_referee2_post_code if edit_referee2_post_code else '',
+                                edit_referee2_city if edit_referee2_city else '',
+                                edit_referee2_email if edit_referee2_email else '',
+                                edit_referee2_period if edit_referee2_period else '',
+                                edit_referee3_name if edit_referee3_name else '',
+                                edit_referee3_occupation if edit_referee3_occupation else '',
+                                edit_referee3_postal_address if edit_referee3_postal_address else '',
+                                edit_referee3_post_code if edit_referee3_post_code else '',
+                                edit_referee3_city if edit_referee3_city else '',
+                                edit_referee3_mobile if edit_referee3_mobile else '',
+                                edit_referee3_email if edit_referee3_email else '',
+                                edit_referee3_period if edit_referee3_period else '',
+                                'Yes' if edit_in_public_service == "Yes" else 'No',
+                                edit_public_institution_category if edit_public_institution_category != 'Select' else '',
+                                edit_public_institution if edit_public_institution else '',
+                                edit_station if edit_station else '',
+                                edit_employment_number if edit_employment_number else '',
+                                edit_present_substantive_post if edit_present_substantive_post else '',
+                                edit_job_group if edit_job_group else '',
+                                edit_date_of_current_appointment.strftime("%Y-%m-%d") if edit_date_of_current_appointment else None,
+                                edit_upgraded_post if edit_upgraded_post else '',
+                                edit_effective_date_previous_appointment.strftime("%Y-%m-%d") if edit_effective_date_previous_appointment else None,
+                                edit_secondment_organisation if edit_secondment_organisation else '',
+                                edit_secondment_designation if edit_secondment_designation else '',
+                                edit_terms_of_service if edit_terms_of_service else '',
+                                edit_gross_monthly_salary if edit_gross_monthly_salary else 0,
+                                edit_expected_gross_monthly_salary if edit_expected_gross_monthly_salary else 0,
+                                'Yes' if edit_convicted == "Yes" else 'No',
+                                'Yes' if edit_dismissed == "Yes" else 'No',
+                                edit_source if edit_source != 'Select Source' else '',
+                                edit_department if edit_department else '',
                                 int(app['id'])
                             )
                             
@@ -12976,7 +13303,7 @@ def edit_applicant():
                                 st.session_state.user['username'] if "user" in st.session_state and st.session_state.user else "admin",
                                 "EDIT_APPLICANT",
                                 int(app['id']),
-                                f"Updated applicant: {new_name} (ID: {new_id}) - Status: {new_status}",
+                                f"Updated applicant: {edit_name} (ID: {edit_id_number}) - Status: {edit_status}",
                                 "Success"
                             )
                             
