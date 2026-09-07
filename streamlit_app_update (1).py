@@ -24,6 +24,7 @@ import time
 import uuid  # NEW: For generating unique IDs
 from google.cloud import storage  # NEW: For GCS
 from google.oauth2 import service_account  # NEW: For GCS authentication
+from leave_management_module import leave_dashboard
 
 
 # =========================================================
@@ -138,11 +139,12 @@ ROLE_PERMISSIONS = {
             "🧪 Test Data",
             "⚙️ Settings",
             "🔍 Test GCS Connection",
+            "🏖️ Leave Management",
             "👤 Users"
         ],
         "permissions": [
             "view_dashboard", "view_ai_kb", "upload_ai_documents", "view_staff", "add_staff", "edit_staff", "delete_staff",
-            "import_staff", "process_promotions", "manage_redesignation", "manage_contracts",
+            "import_staff", "process_promotions", "leave_approval", "manage_redesignation", "manage_contracts",
             "manage_translation", "manage_salary", "manage_leave", "manage_confirmation",
             "manage_discipline", "manage_acting", "view_reports", "export_data",
             "manage_users", "view_audit","test_gcs_connection", "backup_restore", "system_settings", "test_data",
@@ -166,12 +168,13 @@ ROLE_PERMISSIONS = {
             "✅ Data Quality",
             "⚙️ Settings",
             "🔍 Test GCS Connection",
+            "🏖️ Leave Management",
             "👤 Users"
             
         ],
         "permissions": [
             "view_dashboard", "test_gcs_connection", "view_ai_kb", "upload_ai_documents", "view_staff", "add_staff", "edit_staff", "delete_staff",
-            "import_staff", "process_promotions", "manage_redesignation", "manage_contracts",
+            "import_staff", "process_promotions", "leave_approval", "manage_redesignation", "manage_contracts",
             "manage_translation", "manage_salary", "manage_leave", "manage_confirmation",
             "manage_discipline", "manage_acting", "view_reports", "export_data",
             "manage_users", "system_settings", "view_scoresheet", "edit_applications"
@@ -201,11 +204,12 @@ ROLE_PERMISSIONS = {
             "📊 Scoresheet",
             "👔 HR Functions",
             "📋 Records",
+            "🏖️ Leave Management",
             "📤 Export Center"
         ],
         "permissions": [
             "view_dashboard", "view_staff", "add_staff",
-            "import_staff", "view_reports"
+            "import_staff", "view_reports", "manage_leave" 
         ]
     }
 }
@@ -1225,7 +1229,7 @@ def get_user_menu():
     # Admin and Super Admin get additional menus
     if role in ["Admin", "Super Admin"]:
         menu.extend(["📥 Import Excel", "📋 Records", "📈 Reports", "⭐ Review",
-                     "📤 Export Center", "✅ Data Quality", "⚙️ Settings", "👤 Users"])
+                     "📤 Export Center", "✅ Data Quality", "⚙️ Settings", "🏖️ Leave Management", "👤 Users"])
     
     # Super Admin gets audit and backup
     if role == "Super Admin":
@@ -7490,6 +7494,7 @@ def sidebar():
             "🧪 Test Data": "Generate sample data",
             "⚙️ Settings": "System configuration",
             "👤 Users": "User management",
+            "🏖️ Leave Management": "Leave Management",
             "🔍 Test GCS Connection": "Google Cloud Storage Test"
             
 
@@ -20096,6 +20101,8 @@ def main():
         ai_knowledge_base()
     elif menu == "🔍 Test GCS Connection":
         test_gcs_page()
+    elif menu == "🏖️ Leave Management":
+        leave_dashboard()   
     elif menu == "👤 Users":
         users()
     else:
