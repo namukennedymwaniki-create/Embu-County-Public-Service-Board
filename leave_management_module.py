@@ -567,9 +567,9 @@ def leave_dashboard():
             conn.close()
             
             # =========================================================
-            # DISPLAY STATS CARDS
+            # DISPLAY STATS CARDS - FIXED WITH DYNAMIC VALUES
             # =========================================================
-            st.markdown("""
+            st.markdown(f"""
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
                 
                 <!-- Total Employees Card -->
@@ -577,7 +577,7 @@ def leave_dashboard():
                     <div style="display: flex; justify-content: space-between; align-items: start;">
                         <div>
                             <div class="label">Total Employees</div>
-                            <div class="value">""" + str(total_employees) + """</div>
+                            <div class="value">{total_employees}</div>
                             <div class="trend">
                                 <span style="color: #10b981;">📈 Active</span>
                                 <span>across departments</span>
@@ -594,7 +594,7 @@ def leave_dashboard():
                     <div style="display: flex; justify-content: space-between; align-items: start;">
                         <div>
                             <div class="label">On Leave Today</div>
-                            <div class="value">""" + str(on_leave) + """</div>
+                            <div class="value">{on_leave}</div>
                             <div class="trend">
                                 <span style="color: #10b981;">✅</span>
                                 <span>Currently absent</span>
@@ -611,7 +611,7 @@ def leave_dashboard():
                     <div style="display: flex; justify-content: space-between; align-items: start;">
                         <div>
                             <div class="label">Pending Approvals</div>
-                            <div class="value">""" + str(total_pending) + """</div>
+                            <div class="value">{total_pending}</div>
                             <div class="trend">
                                 <span style="color: #f59e0b;">⏳</span>
                                 <span>Needs review</span>
@@ -628,10 +628,10 @@ def leave_dashboard():
                     <div style="display: flex; justify-content: space-between; align-items: start;">
                         <div>
                             <div class="label">Leave Utilization</div>
-                            <div class="value">""" + str(utilization_rate) + """%</div>
+                            <div class="value">{utilization_rate}%</div>
                             <div style="margin-top: 8px;">
                                 <div class="progress-container">
-                                    <div class="progress-bar" style="width: """ + str(utilization_rate) + """%;"></div>
+                                    <div class="progress-bar" style="width: {utilization_rate}%;"></div>
                                 </div>
                             </div>
                         </div>
