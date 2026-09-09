@@ -289,9 +289,6 @@ def process_leave_approval(application_id, action, approver_id, comments=""):
         traceback.print_exc()
         return {"success": False, "error": str(e)}
 
-# =========================================================
-# LEAVE MANAGEMENT UI
-# =========================================================
 def leave_dashboard():
     """Leave Management Dashboard"""
     
@@ -383,6 +380,7 @@ def leave_dashboard():
         display: flex;
         align-items: center;
         justify-content: center;
+        font-size: 1.5rem;
     }
     
     /* Application Cards */
@@ -451,6 +449,7 @@ def leave_dashboard():
         border-radius: 6px;
         height: 8px;
         overflow: hidden;
+        margin-top: 8px;
     }
     
     .progress-bar {
@@ -508,7 +507,7 @@ def leave_dashboard():
             cursor = conn.cursor()
             
             # =========================================================
-            # GET STATISTICS
+            # GET STATISTICS - DYNAMIC VALUES
             # =========================================================
             
             # Total employees
@@ -567,7 +566,7 @@ def leave_dashboard():
             conn.close()
             
             # =========================================================
-            # DISPLAY STATS CARDS - FIXED WITH DYNAMIC VALUES
+            # DISPLAY STATS CARDS - USING f-STRING FOR DYNAMIC VALUES
             # =========================================================
             st.markdown(f"""
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
@@ -629,10 +628,8 @@ def leave_dashboard():
                         <div>
                             <div class="label">Leave Utilization</div>
                             <div class="value">{utilization_rate}%</div>
-                            <div style="margin-top: 8px;">
-                                <div class="progress-container">
-                                    <div class="progress-bar" style="width: {utilization_rate}%;"></div>
-                                </div>
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width: {utilization_rate}%;"></div>
                             </div>
                         </div>
                         <div class="icon-wrapper" style="background: rgba(6, 182, 212, 0.1); color: #06b6d4;">
@@ -652,15 +649,15 @@ def leave_dashboard():
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 if st.button("📝 Apply for Leave", use_container_width=True):
-                    st.session_state.active_tab = "📝 Apply for Leave"
+                    st.session_state.leave_active_tab = "📝 Apply for Leave"
                     st.rerun()
             with col2:
                 if st.button("📋 My Applications", use_container_width=True):
-                    st.session_state.active_tab = "📋 My Applications"
+                    st.session_state.leave_active_tab = "📋 My Applications"
                     st.rerun()
             with col3:
                 if st.button("✅ Approvals", use_container_width=True):
-                    st.session_state.active_tab = "✅ Approvals (Manager)"
+                    st.session_state.leave_active_tab = "✅ Approvals (Manager)"
                     st.rerun()
             with col4:
                 if st.button("🔍 View Roster", use_container_width=True):
@@ -762,6 +759,9 @@ def leave_dashboard():
             import traceback
             st.code(traceback.format_exc())
     
+    # =========================================================
+    # TAB 2: APPLY FOR LEAVE
+    # =========================================================
     with tab2:
         st.subheader("📝 Apply for Leave")
         
@@ -774,34 +774,80 @@ def leave_dashboard():
             is_cloud = st.secrets.get("DATABASE_URL") is not None
             cursor = conn.cursor()
             
-            # Get current user's staff_no
+            # Get current user's role
+            user_role = st.session_state.user.get("role", "User")
             username = st.session_state.user.get("username", "")
             
-            # Try to find employee by staff_no or personal_no
-            if is_cloud:
-                cursor.execute("SELECT staff_no FROM employees WHERE staff_no = %s OR personal_no = %s", (username, username))
-            else:
-                cursor.execute("SELECT staff_no FROM employees WHERE staff_no = ? OR personal_no = ?", (username, username))
-            emp_record = cursor.fetchone()
+            # Check if user can apply for others (HR, Admin, Super Admin)
+            can_apply_for_others = user_role in ["HR", "Admin", "Super Admin"]
             
-            if emp_record:
-                staff_no = emp_record[0]
-            else:
-                # Try by personal_no
+            # SELECT EMPLOYEE (For HR/Admin or Self)
+            selected_staff_no = None
+            
+            if can_apply_for_others:
+                st.info("🏢 **HR Mode:** You can apply for leave on behalf of employees.")
+                
+                # Get all active employees
                 if is_cloud:
-                    cursor.execute("SELECT personal_no FROM employees WHERE personal_no = %s", (username,))
+                    employees_df = pd.read_sql("""
+                        SELECT staff_no, name, current_designation, department 
+                        FROM employees 
+                        WHERE is_active = TRUE 
+                        ORDER BY name
+                    """, conn)
                 else:
-                    cursor.execute("SELECT personal_no FROM employees WHERE personal_no = ?", (username,))
+                    employees_df = pd.read_sql("""
+                        SELECT staff_no, name, current_designation, department 
+                        FROM employees 
+                        WHERE is_active = 1 
+                        ORDER BY name
+                    """, conn)
+                
+                if employees_df.empty:
+                    st.error("No employees found in database")
+                    conn.close()
+                    return
+                
+                # Create employee options
+                employee_options = ["-- Select Employee --"] + [
+                    f"{row['staff_no']} - {row['name']} ({row['current_designation'] if row['current_designation'] else 'No Designation'})"
+                    for _, row in employees_df.iterrows()
+                ]
+                
+                selected_employee = st.selectbox(
+                    "👤 Select Employee *",
+                    employee_options,
+                    key="leave_employee_select"
+                )
+                
+                if selected_employee == "-- Select Employee --":
+                    st.warning("⚠️ Please select an employee to apply for leave")
+                    conn.close()
+                    return
+                
+                # Extract staff_no from selection
+                selected_staff_no = selected_employee.split(" - ")[0]
+                
+                # Show selected employee info
+                emp_info = employees_df[employees_df['staff_no'] == selected_staff_no].iloc[0]
+                st.info(f"📌 Applying for: **{emp_info['name']}** ({emp_info['department']})")
+                
+            else:
+                # Regular employee applying for self
+                if is_cloud:
+                    cursor.execute("SELECT staff_no FROM employees WHERE staff_no = %s OR personal_no = %s", (username, username))
+                else:
+                    cursor.execute("SELECT staff_no FROM employees WHERE staff_no = ? OR personal_no = ?", (username, username))
                 emp_record = cursor.fetchone()
                 
                 if emp_record:
-                    staff_no = emp_record[0]
+                    selected_staff_no = emp_record[0]
                 else:
                     st.error("No employee record found for your account. Please contact HR.")
                     conn.close()
                     return
             
-            # Get leave types
+            # GET LEAVE TYPES AND BALANCES
             if is_cloud:
                 leave_types = pd.read_sql("SELECT * FROM leave_types WHERE is_active = TRUE", conn)
             else:
@@ -812,17 +858,17 @@ def leave_dashboard():
                 conn.close()
                 return
             
-            # Check entitlements
+            # Get entitlements for selected employee
             current_year = datetime.now().year
             if is_cloud:
                 entitlements = pd.read_sql(f"""
                     SELECT * FROM leave_entitlements 
-                    WHERE staff_no = '{staff_no}' AND year = {current_year}
+                    WHERE staff_no = '{selected_staff_no}' AND year = {current_year}
                 """, conn)
             else:
                 entitlements = pd.read_sql(f"""
                     SELECT * FROM leave_entitlements 
-                    WHERE staff_no = '{staff_no}' AND year = {current_year}
+                    WHERE staff_no = '{selected_staff_no}' AND year = {current_year}
                 """, conn)
             
             if entitlements.empty:
@@ -832,26 +878,30 @@ def leave_dashboard():
                         cursor.execute("""
                             INSERT INTO leave_entitlements (staff_no, leave_type_id, year, allocated_days)
                             VALUES (%s, %s, %s, %s)
-                        """, (staff_no, lt['id'], current_year, lt['default_days']))
+                        """, (selected_staff_no, lt['id'], current_year, lt['default_days']))
                     else:
                         cursor.execute("""
                             INSERT INTO leave_entitlements (staff_no, leave_type_id, year, allocated_days)
                             VALUES (?, ?, ?, ?)
-                        """, (staff_no, lt['id'], current_year, lt['default_days']))
+                        """, (selected_staff_no, lt['id'], current_year, lt['default_days']))
                 conn.commit()
                 
+                # Reload entitlements
                 if is_cloud:
                     entitlements = pd.read_sql(f"""
                         SELECT * FROM leave_entitlements 
-                        WHERE staff_no = '{staff_no}' AND year = {current_year}
+                        WHERE staff_no = '{selected_staff_no}' AND year = {current_year}
                     """, conn)
                 else:
                     entitlements = pd.read_sql(f"""
                         SELECT * FROM leave_entitlements 
-                        WHERE staff_no = '{staff_no}' AND year = {current_year}
+                        WHERE staff_no = '{selected_staff_no}' AND year = {current_year}
                     """, conn)
             
             # Create leave application form
+            st.markdown("---")
+            st.subheader("📝 Leave Application Details")
+            
             with st.form("leave_application_form"):
                 col1, col2 = st.columns(2)
                 
@@ -877,7 +927,7 @@ def leave_dashboard():
                     working_days = calculate_working_days(start_date, end_date)
                     st.info(f"📅 Working Days: {working_days}")
                     
-                    balance = check_leave_balance(staff_no, selected_leave_type)
+                    balance = check_leave_balance(selected_staff_no, selected_leave_type)
                     st.info(f"💰 Available Balance: {balance} days")
                     
                     if working_days > balance:
@@ -896,11 +946,12 @@ def leave_dashboard():
                         st.error(f"Insufficient balance: Requested {working_days}, Available {balance}")
                     else:
                         result = create_leave_application(
-                            staff_no=staff_no,
+                            staff_no=selected_staff_no,
                             leave_type_id=selected_leave_type,
                             start_date=start_date,
                             end_date=end_date,
-                            reason=reason
+                            reason=reason,
+                            applied_by=username
                         )
                         
                         if result["success"]:
@@ -911,12 +962,15 @@ def leave_dashboard():
                             st.error(f"❌ {result['error']}")
             
             conn.close()
-                
+            
         except Exception as e:
             st.error(f"Error: {e}")
             import traceback
             st.code(traceback.format_exc())
     
+    # =========================================================
+    # TAB 3: MY APPLICATIONS
+    # =========================================================
     with tab3:
         st.subheader("📋 My Leave Applications")
         
@@ -926,6 +980,7 @@ def leave_dashboard():
             cursor = conn.cursor()
             
             username = st.session_state.user.get("username", "")
+            user_role = st.session_state.user.get("role", "User")
             
             # Get current user's staff_no
             if is_cloud:
@@ -937,7 +992,7 @@ def leave_dashboard():
             if emp_record:
                 staff_no = emp_record[0]
                 
-                # Get applications
+                # Get applications for self
                 if is_cloud:
                     applications = pd.read_sql(f"""
                         SELECT 
@@ -1007,19 +1062,23 @@ def leave_dashboard():
                                         st.error(f"❌ {result['error']}")
                 conn.close()
             else:
-                st.info("No employee record found")
+                st.info("No employee record found for your account")
                 conn.close()
+                return
                 
         except Exception as e:
             st.error(f"Error loading applications: {e}")
             import traceback
             st.code(traceback.format_exc())
     
+    # =========================================================
+    # TAB 4: APPROVALS
+    # =========================================================
     with tab4:
         st.subheader("✅ Leave Approvals (Manager)")
         
         role = st.session_state.user.get("role", "User")
-        if role not in ["Admin", "Super Admin", "HR", "Manager"]:
+        if role not in ["Admin", "Super Admin", "HR", "Supervisor"]:
             st.error("⛔ Access Denied. You need Manager, HR, Admin or Super Admin role.")
             return
         
@@ -1028,96 +1087,45 @@ def leave_dashboard():
             is_cloud = st.secrets.get("DATABASE_URL") is not None
             cursor = conn.cursor()
             
-            # Check if leave_applications has staff_no column
-            if is_cloud:
-                cursor.execute("""
-                    SELECT column_name FROM information_schema.columns 
-                    WHERE table_name = 'leave_applications' AND column_name = 'staff_no'
-                """)
-                has_staff_no = cursor.fetchone() is not None
+            # Get pending applications based on role
+            if role in ["Admin", "Super Admin", "HR"]:
+                pending = pd.read_sql("""
+                    SELECT 
+                        la.id,
+                        la.application_no,
+                        e.name as employee_name,
+                        e.current_designation as designation,
+                        lt.name as leave_type,
+                        la.start_date,
+                        la.end_date,
+                        la.requested_days,
+                        la.reason,
+                        la.status
+                    FROM leave_applications la
+                    JOIN employees e ON la.staff_no = e.staff_no
+                    JOIN leave_types lt ON la.leave_type_id = lt.id
+                    WHERE la.status = 'Pending HR'
+                    ORDER BY la.created_at DESC
+                """, conn)
             else:
-                cursor.execute("PRAGMA table_info(leave_applications)")
-                existing_cols = [col[1] for col in cursor.fetchall()]
-                has_staff_no = 'staff_no' in existing_cols
-            
-            if has_staff_no:
-                # Use staff_no for joining
-                if role in ["Admin", "Super Admin", "HR"]:
-                    pending = pd.read_sql("""
-                        SELECT 
-                            la.id,
-                            la.application_no,
-                            e.name as employee_name,
-                            e.current_designation as designation,
-                            lt.name as leave_type,
-                            la.start_date,
-                            la.end_date,
-                            la.requested_days,
-                            la.reason,
-                            la.status
-                        FROM leave_applications la
-                        JOIN employees e ON la.staff_no = e.staff_no
-                        JOIN leave_types lt ON la.leave_type_id = lt.id
-                        WHERE la.status = 'Pending HR'
-                        ORDER BY la.created_at DESC
-                    """, conn)
-                else:
-                    pending = pd.read_sql("""
-                        SELECT 
-                            la.id,
-                            la.application_no,
-                            e.name as employee_name,
-                            e.current_designation as designation,
-                            lt.name as leave_type,
-                            la.start_date,
-                            la.end_date,
-                            la.requested_days,
-                            la.reason,
-                            la.status
-                        FROM leave_applications la
-                        JOIN employees e ON la.staff_no = e.staff_no
-                        JOIN leave_types lt ON la.leave_type_id = lt.id
-                        WHERE la.status = 'Pending Supervisor'
-                        ORDER BY la.created_at DESC
-                    """, conn)
-            else:
-                # Fallback: show applications without employee join
-                if role in ["Admin", "Super Admin", "HR"]:
-                    pending = pd.read_sql("""
-                        SELECT 
-                            la.id,
-                            la.application_no,
-                            la.staff_no as employee_name,
-                            '' as designation,
-                            lt.name as leave_type,
-                            la.start_date,
-                            la.end_date,
-                            la.requested_days,
-                            la.reason,
-                            la.status
-                        FROM leave_applications la
-                        JOIN leave_types lt ON la.leave_type_id = lt.id
-                        WHERE la.status = 'Pending HR'
-                        ORDER BY la.created_at DESC
-                    """, conn)
-                else:
-                    pending = pd.read_sql("""
-                        SELECT 
-                            la.id,
-                            la.application_no,
-                            la.staff_no as employee_name,
-                            '' as designation,
-                            lt.name as leave_type,
-                            la.start_date,
-                            la.end_date,
-                            la.requested_days,
-                            la.reason,
-                            la.status
-                        FROM leave_applications la
-                        JOIN leave_types lt ON la.leave_type_id = lt.id
-                        WHERE la.status = 'Pending Supervisor'
-                        ORDER BY la.created_at DESC
-                    """, conn)
+                pending = pd.read_sql("""
+                    SELECT 
+                        la.id,
+                        la.application_no,
+                        e.name as employee_name,
+                        e.current_designation as designation,
+                        lt.name as leave_type,
+                        la.start_date,
+                        la.end_date,
+                        la.requested_days,
+                        la.reason,
+                        la.status
+                    FROM leave_applications la
+                    JOIN employees e ON la.staff_no = e.staff_no
+                    JOIN leave_types lt ON la.leave_type_id = lt.id
+                    WHERE la.status = 'Pending Supervisor'
+                    ORDER BY la.created_at DESC
+                """, conn)
             
             if pending.empty:
                 st.info("No pending leave approvals")
