@@ -1219,7 +1219,7 @@ def get_user_menu():
     
     # User role menus
     if role in ["User", "HR", "Admin", "Super Admin"]:
-        menu.extend(["👥 Applicant Profile", "📝 Applicant Registration", "✏️ Edit Application",
+        menu.extend(["👥 Applicant Profile", "📝 Applicant Registration", "🏖️ Leave Management", "✏️ Edit Application",
                      "⭐ Shortlist Management", "📊 Scoresheet"])
     
     # HR and above get HR Functions
