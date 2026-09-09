@@ -294,10 +294,199 @@ def process_leave_approval(application_id, action, approver_id, comments=""):
 # =========================================================
 def leave_dashboard():
     """Leave Management Dashboard"""
+    
+    # Apply professional styling
     st.markdown("""
-    <div class="main-header">
-        <h1 style="color: white; margin: 0;">🏖️ Leave Management</h1>
-        <p style="color: rgba(255,255,255,0.8); margin-top: 0.5rem;">Manage employee leave requests and balances</p>
+    <style>
+    /* =========================================================
+       LEAVE DASHBOARD - PROFESSIONAL STYLING
+       ========================================================= */
+    
+    /* Page Header */
+    .leave-header {
+        background: linear-gradient(135deg, #1a2332 0%, #0f172a 100%);
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .leave-header h1 {
+        color: white !important;
+        margin: 0 !important;
+        font-size: 1.8rem !important;
+        font-weight: 700 !important;
+    }
+    
+    .leave-header p {
+        color: rgba(255, 255, 255, 0.8) !important;
+        margin-top: 0.5rem !important;
+    }
+    
+    /* Stats Cards */
+    .stats-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+        margin-bottom: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    }
+    
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, #3b82f6, transparent);
+    }
+    
+    .stats-card .label {
+        color: #6b7280;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stats-card .value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1.2;
+        margin: 0.5rem 0;
+    }
+    
+    .stats-card .trend {
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #6b7280;
+    }
+    
+    .stats-card .icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Application Cards */
+    .app-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .app-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border-color: #3b82f6;
+    }
+    
+    .app-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #111827;
+    }
+    
+    .app-meta {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+    
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .status-approved {
+        background: #d1fae5;
+        color: #065f46;
+        border: 1px solid #10b981;
+    }
+    
+    .status-pending {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #f59e0b;
+    }
+    
+    .status-rejected {
+        background: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #ef4444;
+    }
+    
+    .status-cancelled {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #9ca3af;
+    }
+    
+    /* Progress Bar */
+    .progress-container {
+        background: #f3f4f6;
+        border-radius: 6px;
+        height: 8px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        border-radius: 6px;
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
+        transition: width 0.5s ease;
+    }
+    
+    /* Quick Actions */
+    .quick-action-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 8px;
+        background: white;
+        border: 1px solid #e5e7eb;
+        color: #374151;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    
+    .quick-action-btn:hover {
+        background: #f9fafb;
+        border-color: #3b82f6;
+        color: #3b82f6;
+    }
+    </style>
+    
+    <!-- Page Header -->
+    <div class="leave-header">
+        <h1>🏖️ Leave Management Dashboard</h1>
+        <p>Manage employee leave requests, balances, and approvals</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -309,34 +498,31 @@ def leave_dashboard():
         "✅ Approvals (Manager)"
     ])
     
+    # =========================================================
+    # TAB 1: OVERVIEW
+    # =========================================================
     with tab1:
-        st.subheader("📊 Leave Overview")
-        
         try:
             conn = get_conn()
             is_cloud = st.secrets.get("DATABASE_URL") is not None
             cursor = conn.cursor()
             
-            # Check if employees table has staff_no column
-            if is_cloud:
-                cursor.execute("""
-                    SELECT column_name FROM information_schema.columns 
-                    WHERE table_name = 'employees' AND column_name = 'staff_no'
-                """)
-                has_staff_no = cursor.fetchone() is not None
-            else:
-                cursor.execute("PRAGMA table_info(employees)")
-                existing_cols = [col[1] for col in cursor.fetchall()]
-                has_staff_no = 'staff_no' in existing_cols
+            # =========================================================
+            # GET STATISTICS
+            # =========================================================
             
-            # Get total employees count
-            if is_cloud:
-                cursor.execute("SELECT COUNT(*) FROM employees WHERE is_active = TRUE")
-            else:
-                cursor.execute("SELECT COUNT(*) FROM employees WHERE is_active = 1")
-            total_employees = cursor.fetchone()[0]
+            # Total employees
+            try:
+                if is_cloud:
+                    cursor.execute("SELECT COUNT(*) FROM employees WHERE is_active = TRUE")
+                else:
+                    cursor.execute("SELECT COUNT(*) FROM employees WHERE is_active = 1")
+                total_employees = cursor.fetchone()[0]
+            except:
+                cursor.execute("SELECT COUNT(*) FROM employees")
+                total_employees = cursor.fetchone()[0]
             
-            # Get on leave today
+            # On leave today
             today = date.today()
             try:
                 if is_cloud:
@@ -357,7 +543,7 @@ def leave_dashboard():
             except:
                 on_leave = 0
             
-            # Get pending counts
+            # Pending counts
             try:
                 cursor.execute("SELECT COUNT(*) FROM leave_applications WHERE status = 'Pending Supervisor'")
                 pending_sup = cursor.fetchone()[0]
@@ -370,54 +556,206 @@ def leave_dashboard():
             except:
                 pending_hr = 0
             
+            # Total pending
+            total_pending = pending_sup + pending_hr
+            
+            # Leave utilization rate
+            utilization_rate = 0
+            if total_employees > 0:
+                utilization_rate = min(100, round((on_leave / total_employees) * 100))
+            
             conn.close()
+            
+            # =========================================================
+            # DISPLAY STATS CARDS
+            # =========================================================
+            st.markdown("""
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                
+                <!-- Total Employees Card -->
+                <div class="stats-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <div class="label">Total Employees</div>
+                            <div class="value">""" + str(total_employees) + """</div>
+                            <div class="trend">
+                                <span style="color: #10b981;">📈 Active</span>
+                                <span>across departments</span>
+                            </div>
+                        </div>
+                        <div class="icon-wrapper" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
+                            👥
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- On Leave Card -->
+                <div class="stats-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <div class="label">On Leave Today</div>
+                            <div class="value">""" + str(on_leave) + """</div>
+                            <div class="trend">
+                                <span style="color: #10b981;">✅</span>
+                                <span>Currently absent</span>
+                            </div>
+                        </div>
+                        <div class="icon-wrapper" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                            🏖️
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pending Approvals Card -->
+                <div class="stats-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <div class="label">Pending Approvals</div>
+                            <div class="value">""" + str(total_pending) + """</div>
+                            <div class="trend">
+                                <span style="color: #f59e0b;">⏳</span>
+                                <span>Needs review</span>
+                            </div>
+                        </div>
+                        <div class="icon-wrapper" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                            📋
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Utilization Card -->
+                <div class="stats-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <div class="label">Leave Utilization</div>
+                            <div class="value">""" + str(utilization_rate) + """%</div>
+                            <div style="margin-top: 8px;">
+                                <div class="progress-container">
+                                    <div class="progress-bar" style="width: """ + str(utilization_rate) + """%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="icon-wrapper" style="background: rgba(6, 182, 212, 0.1); color: #06b6d4;">
+                            📊
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # =========================================================
+            # QUICK ACTIONS
+            # =========================================================
+            st.markdown("### ⚡ Quick Actions")
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("Total Employees", total_employees)
+                if st.button("📝 Apply for Leave", use_container_width=True):
+                    st.session_state.active_tab = "📝 Apply for Leave"
+                    st.rerun()
             with col2:
-                st.metric("On Leave Today", on_leave)
+                if st.button("📋 My Applications", use_container_width=True):
+                    st.session_state.active_tab = "📋 My Applications"
+                    st.rerun()
             with col3:
-                st.metric("Pending Supervisor", pending_sup)
+                if st.button("✅ Approvals", use_container_width=True):
+                    st.session_state.active_tab = "✅ Approvals (Manager)"
+                    st.rerun()
             with col4:
-                st.metric("Pending HR", pending_hr)
+                if st.button("🔍 View Roster", use_container_width=True):
+                    st.info("📅 Roster feature coming soon!")
             
-            # Show upcoming leaves
             st.markdown("---")
-            st.subheader("📅 Upcoming/Current Leaves")
+            
+            # =========================================================
+            # RECENT APPLICATIONS
+            # =========================================================
+            st.markdown("### 📋 Recent Applications")
             
             try:
                 conn = get_conn()
-                is_cloud = st.secrets.get("DATABASE_URL") is not None
                 
-                # Use staff_no for joining (matches employees table)
-                upcoming = pd.read_sql("""
-                    SELECT 
-                        e.name as employee_name,
-                        e.staff_no as employee_no,
-                        lt.name as leave_type,
-                        la.start_date,
-                        la.end_date,
-                        la.requested_days,
-                        la.status
-                    FROM leave_applications la
-                    JOIN employees e ON la.staff_no = e.staff_no
-                    JOIN leave_types lt ON la.leave_type_id = lt.id
-                    WHERE la.status = 'Approved'
-                    ORDER BY la.start_date DESC
-                    LIMIT 20
-                """, conn)
+                # Get recent applications
+                if is_cloud:
+                    recent_apps = pd.read_sql("""
+                        SELECT 
+                            la.application_no,
+                            e.name as employee_name,
+                            e.staff_no as employee_no,
+                            lt.name as leave_type,
+                            la.start_date,
+                            la.end_date,
+                            la.requested_days,
+                            la.status,
+                            la.created_at
+                        FROM leave_applications la
+                        JOIN employees e ON la.staff_no = e.staff_no
+                        JOIN leave_types lt ON la.leave_type_id = lt.id
+                        ORDER BY la.created_at DESC
+                        LIMIT 10
+                    """, conn)
+                else:
+                    recent_apps = pd.read_sql("""
+                        SELECT 
+                            la.application_no,
+                            e.name as employee_name,
+                            e.staff_no as employee_no,
+                            lt.name as leave_type,
+                            la.start_date,
+                            la.end_date,
+                            la.requested_days,
+                            la.status,
+                            la.created_at
+                        FROM leave_applications la
+                        JOIN employees e ON la.staff_no = e.staff_no
+                        JOIN leave_types lt ON la.leave_type_id = lt.id
+                        ORDER BY la.created_at DESC
+                        LIMIT 10
+                    """, conn)
+                
                 conn.close()
                 
-                if not upcoming.empty:
-                    st.dataframe(upcoming, use_container_width=True)
+                if not recent_apps.empty:
+                    for idx, app in recent_apps.iterrows():
+                        status_class = ""
+                        status_emoji = ""
+                        
+                        if app['status'] == 'Approved':
+                            status_class = "status-approved"
+                            status_emoji = "✅"
+                        elif app['status'] in ['Pending Supervisor', 'Pending HR']:
+                            status_class = "status-pending"
+                            status_emoji = "⏳"
+                        elif app['status'] == 'Rejected':
+                            status_class = "status-rejected"
+                            status_emoji = "❌"
+                        else:
+                            status_class = "status-cancelled"
+                            status_emoji = "❌"
+                        
+                        st.markdown(f"""
+                        <div class="app-card">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div class="app-title">{app['employee_name']} - {app['leave_type']}</div>
+                                    <div class="app-meta">
+                                        📅 {app['start_date']} to {app['end_date']} | {app['requested_days']} days
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="status-badge {status_class}">
+                                        {status_emoji} {app['status']}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 else:
-                    st.info("No approved leaves found")
+                    st.info("📭 No leave applications found")
                     
             except Exception as e:
-                st.error(f"Error loading leaves: {e}")
-                import traceback
-                st.code(traceback.format_exc())
+                st.error(f"Error loading recent applications: {e}")
                 
         except Exception as e:
             st.error(f"Error loading dashboard: {e}")
