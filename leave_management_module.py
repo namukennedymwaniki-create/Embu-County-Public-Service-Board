@@ -112,7 +112,7 @@ def check_leave_balance(staff_no, leave_type_id):
     except:
         return 0
 
-def create_leave_application(staff_no, leave_type_id, start_date, end_date, reason):
+def create_leave_application(staff_no, leave_type_id, start_date, end_date, reason, applied_by=None):
     """Create a new leave application"""
     try:
         conn = get_conn()
@@ -137,27 +137,67 @@ def create_leave_application(staff_no, leave_type_id, start_date, end_date, reas
         
         now_str = now.strftime("%Y-%m-%d %H:%M:%S")
         
+        # Use applied_by if provided, otherwise use staff_no as the applicant
+        applicant = applied_by if applied_by else staff_no
+        
+        # Check if leave_applications table has applied_by column
         if is_cloud:
             cursor.execute("""
-                INSERT INTO leave_applications (
-                    application_no, staff_no, leave_type_id, start_date, end_date,
-                    requested_days, working_days, reason, status, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (app_no, staff_no, leave_type_id, start_date, end_date,
-                  working_days, working_days, reason, 'Pending Supervisor', now_str))
-            app_id = cursor.fetchone()[0]
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'leave_applications' AND column_name = 'applied_by'
+            """)
+            has_applied_by = cursor.fetchone() is not None
         else:
-            cursor.execute("""
-                INSERT INTO leave_applications (
-                    application_no, staff_no, leave_type_id, start_date, end_date,
-                    requested_days, working_days, reason, status, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (app_no, staff_no, leave_type_id, start_date.strftime("%Y-%m-%d"),
-                  end_date.strftime("%Y-%m-%d"), working_days, working_days, reason,
-                  'Pending Supervisor', now_str))
-            app_id = cursor.lastrowid
+            cursor.execute("PRAGMA table_info(leave_applications)")
+            existing_cols = [col[1] for col in cursor.fetchall()]
+            has_applied_by = 'applied_by' in existing_cols
         
+        if has_applied_by:
+            # Insert with applied_by column
+            if is_cloud:
+                cursor.execute("""
+                    INSERT INTO leave_applications (
+                        application_no, staff_no, leave_type_id, start_date, end_date,
+                        requested_days, working_days, reason, status, created_at, applied_by
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (app_no, staff_no, leave_type_id, start_date, end_date,
+                      working_days, working_days, reason, 'Pending Supervisor', now_str, applicant))
+                app_id = cursor.fetchone()[0]
+            else:
+                cursor.execute("""
+                    INSERT INTO leave_applications (
+                        application_no, staff_no, leave_type_id, start_date, end_date,
+                        requested_days, working_days, reason, status, created_at, applied_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (app_no, staff_no, leave_type_id, start_date.strftime("%Y-%m-%d"),
+                      end_date.strftime("%Y-%m-%d"), working_days, working_days, reason,
+                      'Pending Supervisor', now_str, applicant))
+                app_id = cursor.lastrowid
+        else:
+            # Insert without applied_by column
+            if is_cloud:
+                cursor.execute("""
+                    INSERT INTO leave_applications (
+                        application_no, staff_no, leave_type_id, start_date, end_date,
+                        requested_days, working_days, reason, status, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (app_no, staff_no, leave_type_id, start_date, end_date,
+                      working_days, working_days, reason, 'Pending Supervisor', now_str))
+                app_id = cursor.fetchone()[0]
+            else:
+                cursor.execute("""
+                    INSERT INTO leave_applications (
+                        application_no, staff_no, leave_type_id, start_date, end_date,
+                        requested_days, working_days, reason, status, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (app_no, staff_no, leave_type_id, start_date.strftime("%Y-%m-%d"),
+                      end_date.strftime("%Y-%m-%d"), working_days, working_days, reason,
+                      'Pending Supervisor', now_str))
+                app_id = cursor.lastrowid
+        
+        # Update pending days
         if is_cloud:
             cursor.execute("""
                 UPDATE leave_entitlements 
