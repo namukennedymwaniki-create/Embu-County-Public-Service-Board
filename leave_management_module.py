@@ -10,6 +10,41 @@ from datetime import datetime, timedelta, date
 import traceback
 
 # =========================================================
+# DATABASE CONNECTION
+# =========================================================
+def get_conn():
+    """Get database connection - works on both local and Streamlit Cloud"""
+    
+    # Check if we're on Streamlit Cloud with a DATABASE_URL secret
+    database_url = st.secrets.get("DATABASE_URL")
+    
+    if database_url:
+        # Running on Streamlit Cloud - use PostgreSQL
+        try:
+            # Ensure SSL is enabled for Neon
+            if "sslmode" not in database_url:
+                if "?" in database_url:
+                    database_url += "&sslmode=require"
+                else:
+                    database_url += "?sslmode=require"
+            
+            conn = psycopg2.connect(
+                database_url,
+                connect_timeout=30,
+                keepalives=1,
+                keepalives_idle=5,
+                keepalives_interval=2,
+                keepalives_count=2
+            )
+            return conn
+            
+        except Exception as e:
+            st.error(f"❌ Database connection failed: {e}")
+            return None
+    else:
+        # Running locally - use SQLite
+        return sqlite3.connect("ecde.db", check_same_thread=False)
+# =========================================================
 # LEAVE MANAGEMENT TABLES
 # =========================================================
 def migrate_leave_tables():
