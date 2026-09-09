@@ -336,7 +336,7 @@ def calculate_working_days(start_date, end_date):
             current += timedelta(days=1)
         return working_days
 
-def check_leave_balance(employee_id, leave_type_id):
+def check_leave_balance(staff_no, leave_type_id):
     """Check remaining leave balance"""
     try:
         conn = get_conn()
@@ -349,14 +349,14 @@ def check_leave_balance(employee_id, leave_type_id):
             cursor.execute("""
                 SELECT allocated_days, used_days, pending_days, carry_forward_days
                 FROM leave_entitlements
-                WHERE employee_id = %s AND leave_type_id = %s AND year = %s
-            """, (employee_id, leave_type_id, current_year))
+                WHERE staff_no = %s AND leave_type_id = %s AND year = %s
+            """, (staff_no, leave_type_id, current_year))
         else:
             cursor.execute("""
                 SELECT allocated_days, used_days, pending_days, carry_forward_days
                 FROM leave_entitlements
-                WHERE employee_id = ? AND leave_type_id = ? AND year = ?
-            """, (employee_id, leave_type_id, current_year))
+                WHERE staff_no = ? AND leave_type_id = ? AND year = ?
+            """, (staff_no, leave_type_id, current_year))
         
         result = cursor.fetchone()
         conn.close()
@@ -372,7 +372,7 @@ def check_leave_balance(employee_id, leave_type_id):
     except:
         return 0
 
-def create_leave_application(employee_id, leave_type_id, start_date, end_date, reason):
+def create_leave_application(staff_no, leave_type_id, start_date, end_date, reason):
     """Create a new leave application"""
     try:
         conn = get_conn()
@@ -387,7 +387,7 @@ def create_leave_application(employee_id, leave_type_id, start_date, end_date, r
             return {"success": False, "error": "No working days in selected range"}
         
         # Check balance
-        balance = check_leave_balance(employee_id, leave_type_id)
+        balance = check_leave_balance(staff_no, leave_type_id)
         if balance < working_days:
             conn.close()
             return {"success": False, "error": f"Insufficient balance. Available: {balance}, Requested: {working_days}"}
@@ -404,20 +404,20 @@ def create_leave_application(employee_id, leave_type_id, start_date, end_date, r
         if is_cloud:
             cursor.execute("""
                 INSERT INTO leave_applications (
-                    application_no, employee_id, leave_type_id, start_date, end_date,
+                    application_no, staff_no, leave_type_id, start_date, end_date,
                     requested_days, working_days, reason, status, created_at
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (app_no, employee_id, leave_type_id, start_date, end_date,
+            """, (app_no, staff_no, leave_type_id, start_date, end_date,
                   working_days, working_days, reason, 'Pending Supervisor', now_str))
             app_id = cursor.fetchone()[0]
         else:
             cursor.execute("""
                 INSERT INTO leave_applications (
-                    application_no, employee_id, leave_type_id, start_date, end_date,
+                    application_no, staff_no, leave_type_id, start_date, end_date,
                     requested_days, working_days, reason, status, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (app_no, employee_id, leave_type_id, start_date.strftime("%Y-%m-%d"),
+            """, (app_no, staff_no, leave_type_id, start_date.strftime("%Y-%m-%d"),
                   end_date.strftime("%Y-%m-%d"), working_days, working_days, reason,
                   'Pending Supervisor', now_str))
             app_id = cursor.lastrowid
@@ -427,14 +427,14 @@ def create_leave_application(employee_id, leave_type_id, start_date, end_date, r
             cursor.execute("""
                 UPDATE leave_entitlements 
                 SET pending_days = pending_days + %s 
-                WHERE employee_id = %s AND leave_type_id = %s AND year = %s
-            """, (working_days, employee_id, leave_type_id, now.year))
+                WHERE staff_no = %s AND leave_type_id = %s AND year = %s
+            """, (working_days, staff_no, leave_type_id, now.year))
         else:
             cursor.execute("""
                 UPDATE leave_entitlements 
                 SET pending_days = pending_days + ? 
-                WHERE employee_id = ? AND leave_type_id = ? AND year = ?
-            """, (working_days, employee_id, leave_type_id, now.year))
+                WHERE staff_no = ? AND leave_type_id = ? AND year = ?
+            """, (working_days, staff_no, leave_type_id, now.year))
         
         conn.commit()
         conn.close()
@@ -464,7 +464,10 @@ def process_leave_approval(application_id, action, approver_id, comments=""):
             conn.close()
             return {"success": False, "error": "Application not found"}
         
-        current_status = app[8]  # status column
+        current_status = app[7]  # status column (index 7 in the new table)
+        staff_no = app[2]  # staff_no column
+        leave_type_id = app[3]  # leave_type_id column
+        requested_days = app[6]  # requested_days column
         
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -479,14 +482,14 @@ def process_leave_approval(application_id, action, approver_id, comments=""):
                     cursor.execute("""
                         UPDATE leave_entitlements 
                         SET used_days = used_days + %s, pending_days = pending_days - %s
-                        WHERE employee_id = %s AND leave_type_id = %s AND year = %s
-                    """, (app[6], app[6], app[2], app[3], datetime.now().year))
+                        WHERE staff_no = %s AND leave_type_id = %s AND year = %s
+                    """, (requested_days, requested_days, staff_no, leave_type_id, datetime.now().year))
                 else:
                     cursor.execute("""
                         UPDATE leave_entitlements 
                         SET used_days = used_days + ?, pending_days = pending_days - ?
-                        WHERE employee_id = ? AND leave_type_id = ? AND year = ?
-                    """, (app[6], app[6], app[2], app[3], datetime.now().year))
+                        WHERE staff_no = ? AND leave_type_id = ? AND year = ?
+                    """, (requested_days, requested_days, staff_no, leave_type_id, datetime.now().year))
             else:
                 conn.close()
                 return {"success": False, "error": f"Cannot approve from status: {current_status}"}
@@ -499,14 +502,14 @@ def process_leave_approval(application_id, action, approver_id, comments=""):
                 cursor.execute("""
                     UPDATE leave_entitlements 
                     SET pending_days = pending_days - %s
-                    WHERE employee_id = %s AND leave_type_id = %s AND year = %s
-                """, (app[6], app[2], app[3], datetime.now().year))
+                    WHERE staff_no = %s AND leave_type_id = %s AND year = %s
+                """, (requested_days, staff_no, leave_type_id, datetime.now().year))
             else:
                 cursor.execute("""
                     UPDATE leave_entitlements 
                     SET pending_days = pending_days - ?
-                    WHERE employee_id = ? AND leave_type_id = ? AND year = ?
-                """, (app[6], app[2], app[3], datetime.now().year))
+                    WHERE staff_no = ? AND leave_type_id = ? AND year = ?
+                """, (requested_days, staff_no, leave_type_id, datetime.now().year))
         
         elif action == "cancel":
             new_status = "Cancelled"
@@ -516,14 +519,14 @@ def process_leave_approval(application_id, action, approver_id, comments=""):
                 cursor.execute("""
                     UPDATE leave_entitlements 
                     SET pending_days = pending_days - %s
-                    WHERE employee_id = %s AND leave_type_id = %s AND year = %s
-                """, (app[6], app[2], app[3], datetime.now().year))
+                    WHERE staff_no = %s AND leave_type_id = %s AND year = %s
+                """, (requested_days, staff_no, leave_type_id, datetime.now().year))
             else:
                 cursor.execute("""
                     UPDATE leave_entitlements 
                     SET pending_days = pending_days - ?
-                    WHERE employee_id = ? AND leave_type_id = ? AND year = ?
-                """, (app[6], app[2], app[3], datetime.now().year))
+                    WHERE staff_no = ? AND leave_type_id = ? AND year = ?
+                """, (requested_days, staff_no, leave_type_id, datetime.now().year))
         
         else:
             conn.close()
@@ -559,7 +562,6 @@ def process_leave_approval(application_id, action, approver_id, comments=""):
         print(f"Error processing approval: {e}")
         traceback.print_exc()
         return {"success": False, "error": str(e)}
-
 # =========================================================
 # LEAVE MANAGEMENT UI FUNCTIONS
 # =========================================================
