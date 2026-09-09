@@ -606,84 +606,51 @@ def leave_dashboard():
             conn.close()
             
             # =========================================================
-            # DISPLAY STATS CARDS - USING INLINE STYLES (WORKS IN STREAMLIT)
+            # DISPLAY STATS CARDS - USING STREAMLIT CONTAINERS
             # =========================================================
-            st.markdown(f"""
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
-                
-                <!-- Total Employees Card -->
-                <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; position: relative; overflow: hidden;">
-                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, #3b82f6, transparent);"></div>
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div>
-                            <div style="color: #6b7280; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Employees</div>
-                            <div style="font-size: 2.5rem; font-weight: 700; color: #111827; line-height: 1.2; margin: 0.5rem 0;">{total_employees}</div>
-                            <div style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; color: #6b7280;">
-                                <span style="color: #10b981;">📈 Active</span>
-                                <span>across departments</span>
-                            </div>
-                        </div>
-                        <div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
-                            👥
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                with st.container():
+                    st.markdown(f"""
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h4 style="color: #6b7280; margin: 0;">Total Employees</h4>
+                        <h2 style="color: #111827; margin: 10px 0;">{total_employees}</h2>
+                        <p style="color: #10b981; margin: 0;">📈 Active</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with col2:
+                with st.container():
+                    st.markdown(f"""
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h4 style="color: #6b7280; margin: 0;">On Leave Today</h4>
+                        <h2 style="color: #111827; margin: 10px 0;">{on_leave}</h2>
+                        <p style="color: #10b981; margin: 0;">✅ Currently absent</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with col3:
+                with st.container():
+                    st.markdown(f"""
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h4 style="color: #6b7280; margin: 0;">Pending Approvals</h4>
+                        <h2 style="color: #111827; margin: 10px 0;">{total_pending}</h2>
+                        <p style="color: #f59e0b; margin: 0;">⏳ Needs review</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with col4:
+                with st.container():
+                    st.markdown(f"""
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h4 style="color: #6b7280; margin: 0;">Leave Utilization</h4>
+                        <h2 style="color: #111827; margin: 10px 0;">{utilization_rate}%</h2>
+                        <div style="background: #f3f4f6; border-radius: 6px; height: 8px; overflow: hidden; margin-top: 8px;">
+                            <div style="height: 100%; border-radius: 6px; background: linear-gradient(90deg, #3b82f6, #2563eb); width: {utilization_rate}%;"></div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- On Leave Card -->
-                <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; position: relative; overflow: hidden;">
-                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, #10b981, transparent);"></div>
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div>
-                            <div style="color: #6b7280; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">On Leave Today</div>
-                            <div style="font-size: 2.5rem; font-weight: 700; color: #111827; line-height: 1.2; margin: 0.5rem 0;">{on_leave}</div>
-                            <div style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; color: #6b7280;">
-                                <span style="color: #10b981;">✅</span>
-                                <span>Currently absent</span>
-                            </div>
-                        </div>
-                        <div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(16, 185, 129, 0.1); color: #10b981;">
-                            🏖️
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Pending Approvals Card -->
-                <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; position: relative; overflow: hidden;">
-                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, #f59e0b, transparent);"></div>
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div>
-                            <div style="color: #6b7280; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Pending Approvals</div>
-                            <div style="font-size: 2.5rem; font-weight: 700; color: #111827; line-height: 1.2; margin: 0.5rem 0;">{total_pending}</div>
-                            <div style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; color: #6b7280;">
-                                <span style="color: #f59e0b;">⏳</span>
-                                <span>Needs review</span>
-                            </div>
-                        </div>
-                        <div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
-                            📋
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Utilization Card -->
-                <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; position: relative; overflow: hidden;">
-                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, #06b6d4, transparent);"></div>
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div>
-                            <div style="color: #6b7280; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Leave Utilization</div>
-                            <div style="font-size: 2.5rem; font-weight: 700; color: #111827; line-height: 1.2; margin: 0.5rem 0;">{utilization_rate}%</div>
-                            <div style="background: #f3f4f6; border-radius: 6px; height: 8px; overflow: hidden; margin-top: 8px;">
-                                <div style="height: 100%; border-radius: 6px; background: linear-gradient(90deg, #3b82f6, #2563eb); width: {utilization_rate}%;"></div>
-                            </div>
-                        </div>
-                        <div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(6, 182, 212, 0.1); color: #06b6d4;">
-                            📊
-                        </div>
-                    </div>
-                </div>
-                
-            </div>
-            """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
             
             # =========================================================
             # QUICK ACTIONS
