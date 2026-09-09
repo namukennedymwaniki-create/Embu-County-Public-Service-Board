@@ -566,7 +566,7 @@ def leave_dashboard():
             conn.close()
             
             # =========================================================
-            # DISPLAY STATS CARDS - USING f-STRING FOR DYNAMIC VALUES
+            # DISPLAY STATS CARDS - USING st.markdown() WITH unsafe_allow_html=True
             # =========================================================
             st.markdown(f"""
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
@@ -731,6 +731,7 @@ def leave_dashboard():
                             status_class = "status-cancelled"
                             status_emoji = "❌"
                         
+                        # CRITICAL: Use st.markdown() with unsafe_allow_html=True, NOT st.code()
                         st.markdown(f"""
                         <div class="app-card">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
