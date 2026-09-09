@@ -994,7 +994,69 @@ def leave_dashboard():
             username = st.session_state.user.get("username", "")
             user_role = st.session_state.user.get("role", "User")
             
-            # Get current user's staff_no
+            # =========================================================
+            # FOR HR/ADMIN: Show applications they submitted for others
+            # =========================================================
+            if user_role in ["HR", "Admin", "Super Admin"]:
+                st.info("🏢 **HR View:** Showing applications you submitted for others")
+                
+                try:
+                    if is_cloud:
+                        submitted_by_me = pd.read_sql("""
+                            SELECT 
+                                la.application_no,
+                                e.name as employee_name,
+                                e.staff_no as employee_no,
+                                lt.name as leave_type,
+                                la.start_date,
+                                la.end_date,
+                                la.requested_days,
+                                la.reason,
+                                la.status,
+                                la.created_at
+                            FROM leave_applications la
+                            JOIN employees e ON la.staff_no = e.staff_no
+                            JOIN leave_types lt ON la.leave_type_id = lt.id
+                            WHERE la.applied_by = %s
+                            ORDER BY la.created_at DESC
+                        """, conn, params=(username,))
+                    else:
+                        submitted_by_me = pd.read_sql("""
+                            SELECT 
+                                la.application_no,
+                                e.name as employee_name,
+                                e.staff_no as employee_no,
+                                lt.name as leave_type,
+                                la.start_date,
+                                la.end_date,
+                                la.requested_days,
+                                la.reason,
+                                la.status,
+                                la.created_at
+                            FROM leave_applications la
+                            JOIN employees e ON la.staff_no = e.staff_no
+                            JOIN leave_types lt ON la.leave_type_id = lt.id
+                            WHERE la.applied_by = ?
+                            ORDER BY la.created_at DESC
+                        """, conn, params=(username,))
+                    
+                    if not submitted_by_me.empty:
+                        st.dataframe(submitted_by_me, use_container_width=True)
+                    else:
+                        st.info("No applications submitted by you for others")
+                except Exception as e:
+                    st.info(f"No applications submitted for others: {e}")
+                
+                st.markdown("---")
+            
+            # =========================================================
+            # FOR ALL USERS: Show applications for their own staff_no
+            # =========================================================
+            
+            # Try multiple ways to find the employee
+            staff_no = None
+            
+            # Method 1: Try by username matching staff_no or personal_no
             if is_cloud:
                 cursor.execute("SELECT staff_no FROM employees WHERE staff_no = %s OR personal_no = %s", (username, username))
             else:
@@ -1003,81 +1065,111 @@ def leave_dashboard():
             
             if emp_record:
                 staff_no = emp_record[0]
-                
-                # Get applications for self
-                if is_cloud:
-                    applications = pd.read_sql(f"""
-                        SELECT 
-                            la.application_no,
-                            la.start_date,
-                            la.end_date,
-                            la.requested_days,
-                            la.reason,
-                            la.status,
-                            lt.name as leave_type,
-                            la.created_at
-                        FROM leave_applications la
-                        JOIN leave_types lt ON la.leave_type_id = lt.id
-                        WHERE la.staff_no = '{staff_no}'
-                        ORDER BY la.created_at DESC
-                    """, conn)
-                else:
-                    applications = pd.read_sql(f"""
-                        SELECT 
-                            la.application_no,
-                            la.start_date,
-                            la.end_date,
-                            la.requested_days,
-                            la.reason,
-                            la.status,
-                            lt.name as leave_type,
-                            la.created_at
-                        FROM leave_applications la
-                        JOIN leave_types lt ON la.leave_type_id = lt.id
-                        WHERE la.staff_no = '{staff_no}'
-                        ORDER BY la.created_at DESC
-                    """, conn)
-                
-                if applications.empty:
-                    st.info("No leave applications found")
-                else:
-                    for idx, app in applications.iterrows():
-                        status = app['status']
-                        
-                        if status == 'Approved':
-                            badge = "🟢 Approved"
-                        elif status == 'Rejected':
-                            badge = "🔴 Rejected"
-                        elif status == 'Cancelled':
-                            badge = "⚪ Cancelled"
-                        else:
-                            badge = f"🟡 {status}"
-                        
-                        with st.expander(f"📄 {app['application_no']} - {app['leave_type']} ({app['start_date']} to {app['end_date']}) - {badge}"):
-                            st.write(f"**Days Requested:** {app['requested_days']}")
-                            st.write(f"**Reason:** {app['reason']}")
-                            st.write(f"**Submitted:** {app['created_at']}")
-                            
-                            if status in ['Pending Supervisor', 'Pending HR']:
-                                if st.button(f"❌ Cancel Application", key=f"cancel_{app['application_no']}"):
-                                    if is_cloud:
-                                        cursor.execute("SELECT id FROM leave_applications WHERE application_no = %s", (app['application_no'],))
-                                    else:
-                                        cursor.execute("SELECT id FROM leave_applications WHERE application_no = ?", (app['application_no'],))
-                                    app_id = cursor.fetchone()[0]
-                                    
-                                    result = process_leave_approval(app_id, "cancel", st.session_state.user.get("id", 0))
-                                    if result["success"]:
-                                        st.success(f"✅ Application {app['application_no']} cancelled!")
-                                        st.rerun()
-                                    else:
-                                        st.error(f"❌ {result['error']}")
-                conn.close()
             else:
-                st.info("No employee record found for your account")
-                conn.close()
-                return
+                # Method 2: Try by username matching name
+                if is_cloud:
+                    cursor.execute("SELECT staff_no FROM employees WHERE LOWER(name) LIKE LOWER(%s)", (f"%{username}%",))
+                else:
+                    cursor.execute("SELECT staff_no FROM employees WHERE LOWER(name) LIKE LOWER(?)", (f"%{username}%",))
+                emp_record = cursor.fetchone()
                 
+                if emp_record:
+                    staff_no = emp_record[0]
+                else:
+                    # Method 3: For admin/super admin, use first employee
+                    if user_role in ["Admin", "Super Admin"]:
+                        if is_cloud:
+                            cursor.execute("SELECT staff_no FROM employees WHERE is_active = TRUE LIMIT 1")
+                        else:
+                            cursor.execute("SELECT staff_no FROM employees WHERE is_active = 1 LIMIT 1")
+                        emp_record = cursor.fetchone()
+                        
+                        if emp_record:
+                            staff_no = emp_record[0]
+                            st.info(f"📌 Admin account linked to employee: {staff_no}")
+                        else:
+                            st.warning("No employees found in database")
+                            conn.close()
+                            return
+                    else:
+                        st.warning("No employee record found for your account. Please contact HR to link your account.")
+                        conn.close()
+                        return
+            
+            # Get applications for the found staff_no
+            if is_cloud:
+                applications = pd.read_sql("""
+                    SELECT 
+                        la.application_no,
+                        la.start_date,
+                        la.end_date,
+                        la.requested_days,
+                        la.reason,
+                        la.status,
+                        lt.name as leave_type,
+                        la.created_at
+                    FROM leave_applications la
+                    JOIN leave_types lt ON la.leave_type_id = lt.id
+                    WHERE la.staff_no = %s
+                    ORDER BY la.created_at DESC
+                """, conn, params=(staff_no,))
+            else:
+                applications = pd.read_sql("""
+                    SELECT 
+                        la.application_no,
+                        la.start_date,
+                        la.end_date,
+                        la.requested_days,
+                        la.reason,
+                        la.status,
+                        lt.name as leave_type,
+                        la.created_at
+                    FROM leave_applications la
+                    JOIN leave_types lt ON la.leave_type_id = lt.id
+                    WHERE la.staff_no = ?
+                    ORDER BY la.created_at DESC
+                """, conn, params=(staff_no,))
+            
+            conn.close()
+            
+            if applications.empty:
+                st.info("📭 No leave applications found for you")
+            else:
+                st.subheader(f"📋 My Applications ({len(applications)})")
+                
+                # Display as cards/expanders
+                for idx, app in applications.iterrows():
+                    status = app['status']
+                    
+                    if status == 'Approved':
+                        badge = "🟢 Approved"
+                    elif status == 'Rejected':
+                        badge = "🔴 Rejected"
+                    elif status == 'Cancelled':
+                        badge = "⚪ Cancelled"
+                    else:
+                        badge = f"🟡 {status}"
+                    
+                    with st.expander(f"📄 {app['application_no']} - {app['leave_type']} ({app['start_date']} to {app['end_date']}) - {badge}"):
+                        st.write(f"**Days Requested:** {app['requested_days']}")
+                        st.write(f"**Reason:** {app['reason']}")
+                        st.write(f"**Submitted:** {app['created_at']}")
+                        
+                        if status in ['Pending Supervisor', 'Pending HR']:
+                            if st.button(f"❌ Cancel Application", key=f"cancel_{app['application_no']}"):
+                                if is_cloud:
+                                    cursor.execute("SELECT id FROM leave_applications WHERE application_no = %s", (app['application_no'],))
+                                else:
+                                    cursor.execute("SELECT id FROM leave_applications WHERE application_no = ?", (app['application_no'],))
+                                app_id = cursor.fetchone()[0]
+                                
+                                result = process_leave_approval(app_id, "cancel", st.session_state.user.get("id", 0))
+                                if result["success"]:
+                                    st.success(f"✅ Application {app['application_no']} cancelled!")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ {result['error']}")
+            
         except Exception as e:
             st.error(f"Error loading applications: {e}")
             import traceback
